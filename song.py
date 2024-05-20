@@ -12,14 +12,17 @@ from pydub import AudioSegment
 from pydub.generators import Sine
 from pydub.playback import play
 import pygame
-pydub.AudioSegment.ffmpeg="C:/Users/mateu/ffmpeg-7.0-full_build/bin"
+from moviepy.editor import *
+
+#pydub.AudioSegment.ffmpeg="C:/Users/mateu/ffmpeg-7.0-full_build/bin"
 
 
 class Song:
-    def __init__(self,name:str,author:str="",notes=None,recordings=None,startnotes:str="") -> None:
+    def __init__(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str="") -> None:
         self.name=name
-        self.path="songs/"+name
+        self.path = "songs\\"+name
         self.author=author
+        self.description=description
         if notes:
             self.notes=notes
         else:
@@ -41,6 +44,7 @@ class Song:
             os.mkdir(self.path[6:])
             os.chdir(oldpath)
         pygame.mixer.init()
+        self.playobj=None
 
     def addFromPath(self,name:str,path:str)->str:
         oldname,ext= os.path.splitext(path)
@@ -60,61 +64,93 @@ class Song:
             file.write(data.content)
         os.chdir(oldpath)
 
-    def addRecordingFromYoutube(self,name:str,url:str,ext:str="")->None:
-            yt = pt.YouTube(url)
-            video = yt.streams.filter(only_audio=True).desc().first()
-            out_file = video.download(self.path)
-            new_file = name + (ext if ext!="" else '.wav') 
-            if Path(self.path+"/"+new_file).exists():
-                os.remove(self.path+"/"+new_file)
-            oldpath=os.getcwd()
+    def addRecordingFromYoutube(self,file:str,url:str)->None:
+            #download_audio_from_youtube(url,file)
+            olddir=os.getcwd()
             os.chdir(self.path)
-            os.rename(out_file, new_file)
-            os.chdir(oldpath)
 
-            return ext if ext!="" else '.wav'
+            yt = pt.YouTube(url)
+            stream = yt.streams.filter(only_audio=True,file_extension='mp4').first()
+            download_path = stream.download(filename="audio.mp4")
 
-    def addnotes(self,resource:str,ext:str=""):
-        name=self.name+str(len(self.notes)+1)
+            import subprocess
+            output_file = os.path.splitext(file)[0]+".wav"
+            command = ["ffmpeg", "-i", download_path, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2", output_file]
+            subprocess.call(command)
+            # audio_clip = AudioFileClip(download_path)
+            # audio_clip.write_audiofile(file, codec='pcm_s16le')
+            
+            #Usuń tymczasowy plik MP4
+            os.remove(download_path)
+            os.chdir(olddir)
+            return '.wav'
+            
+
+    def addnotes(self,resource:str,name:str="",ext:str=""):
+        if name=="":
+            name=self.name+str(len(self.notes)+1)
         if resource.startswith("https://drive.google.com"):
             self.addFromGoogleDrive(name=name,url=resource,ext=ext)
-            self.notes.append((name+ext,resource))
         else:
-            ext = self.addFromPath(name+ext,resource)
+            ext = self.addFromPath(name,resource)
         self.notes[(name+ext)]=resource
     
     def addrecording(self,name:str,resource:str,ext:str=""):
         if resource.startswith("https://drive.google.com"):
             self.addFromGoogleDrive(name=name,url=resource,ext=ext)
-        elif resource.startswith("https://www.youtube.com"):
-            ext=self.addRecordingFromYoutube(name,resource,ext)
+        elif resource.startswith("https://www.youtube.com") or resource.startswith("https://youtu.be"):
+            ext=self.addRecordingFromYoutube(name+".wav",resource)
         else:
             ext = self.addFromPath(name+ext,resource)
         self.recordings[(name+ext)]=resource
 
+    def chceckAndDownloadFiles(self)->None:
+        noteitems=list(self.notes.items())
+        for k,v in noteitems:
+            filepath=Path(self.path).joinpath(k)
+            if not filepath.exists():
+                n,ext=os.path.splitext(k)
+                self.addnotes(v,n,ext)
+        
+        recordingitems=list(self.recordings.items())
+        for k,v in recordingitems:
+            filepath=Path(self.path).joinpath(k)
+            if not filepath.exists():
+                n,ext=os.path.splitext(k)
+                self.addrecording(n,v,ext)
+
     def playrecording(self,name:str):
-        try:
+        
             if self.recordings[name]:
                 filepath=Path(self.path).joinpath(name)
                 if not filepath.exists():
                     n,ext=os.path.splitext(name)
                     self.addrecording(n,self.recordings[name],ext)
-                # wave_obj=sa.WaveObject.from_wave_file(filepath)
-                # wave_obj.play()
+
+                # wave_obj=sa.WaveObject.from_wave_file(str(filepath))
+                # if self.playobj and self.playobj.is_playing():
+                #     self.playobj.stop()
+                # self.playobj=wave_obj.play()
+                
+                pygame.mixer.music.stop()
                 pygame.mixer.music.load(filepath)
+                
                 pygame.mixer.music.play()
-        except:
-            pass
+
+                print("plaied")
+       
     
     def playStartNotes(self,filename:str="startsound.wav"):
-        filepath=Path(self.path).joinpath(filename)
-        if not filepath.exists():
-            oldpath=os.getcwd()
-            os.chdir(self.path)
-            self.startsound.export(filename,format='wav')
-            os.chdir(oldpath)
-        pygame.mixer.music.load(filepath)
-        pygame.mixer.music.play()
+        if self.startsound:
+            filepath=Path(self.path).joinpath(filename)
+            if not filepath.exists():
+                oldpath=os.getcwd()
+                os.chdir(self.path)
+                self.startsound.export(filename,format='wav')
+                os.chdir(oldpath)
+            pygame.mixer.music.load(filepath)
+            pygame.mixer.music.play()
+        
 
         
         

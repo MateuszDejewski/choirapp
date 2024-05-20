@@ -1,19 +1,25 @@
 
 from questionnaire import Questionnaire
 from song import Song
+from singer import Singer
 from music21 import interval
 from pydub.playback import play
 
+
 class Score:
-    def __init__(self,song:Song,conductorcomments:str="",transposition:int=0) -> None:
+    def __init__(self,song:Song,conductorcomments:str="",transposition:int=0,avaliable:bool=True,forUsers:dict[Singer:str]=dict()) -> None:
         self.song=song
-        self.questionare=Questionnaire("Czy znasz pieśń:"+self.song.name+"?",["Tak, czuje się w niej pewnie", "Tak, ale wymaga powtórzenia", "Jeszcze się jej uczę", "Na razie nie znam"])
+        self.questionare=Questionnaire("Czy znasz pieśń:"+self.song.name+"?",about=self,possibleAnswers=["Tak, czuje się w niej pewnie", "Tak, ale wymaga powtórzenia", "Jeszcze się jej uczę", "Na razie nie znam"])
         self.conductorcomments=conductorcomments
         self.transposition=transposition
         if transposition!=0:
             self.startsound=Score.transposeStartingNotes(self.song.startnotes,transposition)
         else:
             self.startsound=None
+
+        self.avaliable=avaliable
+        self.forUsers=forUsers
+        
 
     def transposeStartingNotes(strNotes:str,change:int):
         """
@@ -37,3 +43,6 @@ class Score:
             self.song.startsound=oryginalsound
         else:
             self.song.playStartNotes()
+
+    def shareToSinger(self,singer:Singer,comment:str):
+        self.forUsers[singer]=comment
