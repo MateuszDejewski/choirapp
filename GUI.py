@@ -3,7 +3,7 @@ import sys
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication, QWidget, 
-    QVBoxLayout, QHBoxLayout, QGridLayout,
+    QVBoxLayout, QHBoxLayout, QGridLayout,QStackedLayout,
     QLabel, QLineEdit, 
     QPushButton, QCheckBox, QRadioButton,
     QListWidget, QListWidgetItem,
@@ -16,6 +16,7 @@ from choir import Choir
 from questionnaire import Questionnaire
 from score import Score
 from song import Song
+from app import Choirapp
 import fitz
 from functools import partial
 
@@ -118,8 +119,10 @@ class SongWidget(QWidget):
         self.song.playStartNotes()
 
 class SongListWidget(QWidget):
-    def __init__(self,choir:Choir) -> None:
+    def __init__(self,mainwindow) -> None:
         super().__init__()
+        self.mainwindow=mainwindow
+        choir=mainwindow.choir
         self.songlist=QListWidget()
         for song in choir.songs:
             item = QListWidgetItem(song.name)
@@ -134,10 +137,11 @@ class SongListWidget(QWidget):
 
     def showSongDetail(self,songwid:QListWidgetItem):
         self.detailWidget=SongWidget(songwid.data(1))
-        self.detailWidget.show()
+        self.mainwindow.mainlayout.addWidget(self.detailWidget)
+        self.mainwindow.mainlayout.setCurrentWidget(self.detailWidget)
 
 class QuestionnaireWidget(QWidget):
-    def __init__(self, questionnaire: Questionnaire):
+    def __init__(self,questionnaire: Questionnaire):
         super().__init__()
         self.questionnaire = questionnaire
 
@@ -200,45 +204,51 @@ class QuestionnaireWidget(QWidget):
 
 
 class MainWindow(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self,choirapp):
+        super().__init__()
         self.setWindowTitle("Muzyczna Aplikacja")
         self.setGeometry(100, 100, 300, 200)
+        self.choir=choirapp.choirs[0]
         
-        layout = QVBoxLayout()
+        self.mainlayout = QStackedLayout()
         
-        self.song_list_widget = SongListWidget()
-        layout.addWidget(self.song_list_widget)
+        self.song_list_widget = SongListWidget(self)
+        self.mainlayout.addWidget(self.song_list_widget)
         
-        self.setLayout(layout)
+        self.setLayout(self.mainlayout)
+
 
 if __name__=='__main__':
-    choir=Choir("karmel")
-    choir.addSong(name="Chwała Tobie Królu Wieków",
-                  notes={"Chwała Tobie Królu Wieków.pdf":"C:/moje_prace/schola/nuty/Chwala_Tobie_Slowo_Boze.pdf"},
-                  recordings={"tenor.wav":"https://drive.google.com/file/d/1nKHHkY50q3uyoShJNviIPex8UXy5HTAL/view?usp=drive_link",
-                              "Bas.wav":"https://drive.google.com/file/d/1DipBRnOjiDvpTHeQBKIb8ZbuPW-PX_dq/view?usp=drive_link",
-                              "Przykldowe_wykonanie.wav":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},#"Przykladowe wykonanie.mp3":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},
-                    startnotes="A5 Eb5 C5 C4")
+    # choir=Choir("karmel")
+    # choir.addSong(name="Chwała Tobie Królu Wieków",
+    #               notes={"Chwała Tobie Królu Wieków.pdf":"C:/moje_prace/schola/nuty/Chwala_Tobie_Slowo_Boze.pdf"},
+    #               recordings={"tenor.wav":"https://drive.google.com/file/d/1nKHHkY50q3uyoShJNviIPex8UXy5HTAL/view?usp=drive_link",
+    #                           "Bas.wav":"https://drive.google.com/file/d/1DipBRnOjiDvpTHeQBKIb8ZbuPW-PX_dq/view?usp=drive_link",
+    #                           "Przykldowe_wykonanie.wav":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},#"Przykladowe wykonanie.mp3":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},
+    #                 startnotes="A5 Eb5 C5 C4")
     
-    choir.addSong("Deus miserere mei",
-                  notes={"Deus miserere mei.pdf":"https://drive.google.com/file/d/1h6V1yRi1uSyMP1YHK5n8fcsl5mlljqq0/view?usp=drive_link"},
-                  recordings={
-                      "Sopran.acc":"https://drive.google.com/file/d/1g9FEs0OxgxZZUwo5x0sk23FiwIyXnDZ0/view?usp=drive_link",
-                      "Alt.acc":"https://drive.google.com/file/d/1BzCMb9iEYrNv10ERbw9X02PVvHjnD5RW/view?usp=sharing",
-                      "Tenor.acc":"https://drive.google.com/file/d/1Cs7y40SvwXcz82mxaBpp8CPBK847IHEC/view?usp=drive_link",
-                      "Bas.acc":"https://drive.google.com/file/d/1thVVlh2VCG6eebwNyCUdWFJSNVYwWTfX/view?usp=drive_link"
-                  })   
-    choir.addSong("Gaude Mater Polonia",
-                  notes={"Gaude Mater Polonia.pdf":"https://drive.google.com/file/d/1xy2Z2af-N1hMCYRuzwvIEPWzvIuwm-xO/view?usp=drive_link"},
-                  recordings={
-                      "Sopran.mp3":"https://drive.google.com/file/d/1zDzagXS1ml6RViRIAxQKjU2z0S05kCIV/view?usp=drive_link",
-                      "Alt.mp3": "https://drive.google.com/file/d/1pQMvL4acGuUpOjMQjOkpR_1ys98LhOAc/view?usp=drive_link",
-                      "Tenor.mp3": "https://drive.google.com/file/d/1lTL_n4SHS_VXXUOn5cpT7btmFO6W9lfk/view?usp=drive_link",
-                      "Bas.mp3":"https://drive.google.com/file/d/1l1K79I9jCQb7yeloApeQfRgwdtumy2Eq/view?usp=drive_link"
-                  }
-    )
-    app = QApplication(sys.argv)
-    wind=SongListWidget(choir=choir)
+    # choir.addSong("Deus miserere mei",
+    #               notes={"Deus miserere mei.pdf":"https://drive.google.com/file/d/1h6V1yRi1uSyMP1YHK5n8fcsl5mlljqq0/view?usp=drive_link"},
+    #               recordings={
+    #                   "Sopran.acc":"https://drive.google.com/file/d/1g9FEs0OxgxZZUwo5x0sk23FiwIyXnDZ0/view?usp=drive_link",
+    #                   "Alt.acc":"https://drive.google.com/file/d/1BzCMb9iEYrNv10ERbw9X02PVvHjnD5RW/view?usp=sharing",
+    #                   "Tenor.acc":"https://drive.google.com/file/d/1Cs7y40SvwXcz82mxaBpp8CPBK847IHEC/view?usp=drive_link",
+    #                   "Bas.acc":"https://drive.google.com/file/d/1thVVlh2VCG6eebwNyCUdWFJSNVYwWTfX/view?usp=drive_link"
+    #               })   
+    # choir.addSong("Gaude Mater Polonia",
+    #               notes={"Gaude Mater Polonia.pdf":"https://drive.google.com/file/d/1xy2Z2af-N1hMCYRuzwvIEPWzvIuwm-xO/view?usp=drive_link"},
+    #               recordings={
+    #                   "Sopran.mp3":"https://drive.google.com/file/d/1zDzagXS1ml6RViRIAxQKjU2z0S05kCIV/view?usp=drive_link",
+    #                   "Alt.mp3": "https://drive.google.com/file/d/1pQMvL4acGuUpOjMQjOkpR_1ys98LhOAc/view?usp=drive_link",
+    #                   "Tenor.mp3": "https://drive.google.com/file/d/1lTL_n4SHS_VXXUOn5cpT7btmFO6W9lfk/view?usp=drive_link",
+    #                   "Bas.mp3":"https://drive.google.com/file/d/1l1K79I9jCQb7yeloApeQfRgwdtumy2Eq/view?usp=drive_link"
+    #               }
+    # )
+    # app=Choirapp([choir])
+    # app.save_choirs()
+    app = Choirapp()
+    app.read_choirs()
+    gui = QApplication(sys.argv)
+    wind=MainWindow(app)
     wind.show()
-    sys.exit(app.exec())
+    sys.exit(gui.exec())
