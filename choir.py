@@ -32,6 +32,6 @@ class Choir:
             if singer in perf.singers:
                 perflist.append(perf)
                 
-        
+    
     
         

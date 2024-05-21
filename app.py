@@ -1,8 +1,10 @@
 import os
 import pickle
 
+from choir import Choir
+
 class Choirapp:
-    def __init__(self,choirs=[],backupdir:str=None) -> None:
+    def __init__(self,choirs:list[Choir]=[],backupdir:str=None) -> None:
         self.choirs=choirs
         if not backupdir or backupdir=="":
             self.backupdir=os.getcwd()
@@ -19,3 +21,9 @@ class Choirapp:
         if os.path.exists(filepath):
             with open(filepath, 'rb') as file:
                 self.choirs = pickle.load(file)
+
+    def add_choir(self,choir:Choir):
+        for ch in self.choirs:
+            if ch.name==choir.name:
+                raise ValueError("Name is not unique")
+        self.choirs.append(choir)

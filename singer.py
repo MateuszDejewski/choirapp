@@ -1,10 +1,12 @@
 
 from questionnaire import Questionnaire
-
+import keyring
 
 class Singer:
-    def __init__(self,name:str,basicvoice:str) -> None:
+    def __init__(self,name:str,login:str,password:str,basicvoice:str) -> None:
         self.name=name
+        self.login=login
+        keyring.set_password("app",login,password)
         self.basicvoice=basicvoice
         self.answerdquestionnaires=[]
         self.questionnairesToAnswer=[]

@@ -2,23 +2,28 @@ from pathlib import Path
 import sys
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication, QWidget, 
+    QApplication,QMainWindow, QWidget, 
     QVBoxLayout, QHBoxLayout, QGridLayout,QStackedLayout,
     QLabel, QLineEdit, 
     QPushButton, QCheckBox, QRadioButton,
     QListWidget, QListWidgetItem,
-    QScrollArea,QSlider
+    QScrollArea,QSlider,
+    QComboBox,
+    QMessageBox
 )
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 from PySide6.QtGui import QImage,QPixmap
 from choir import Choir
+from conductor import Conductor
 from questionnaire import Questionnaire
 from score import Score
+from singer import Singer
 from song import Song
 from app import Choirapp
 import fitz
 from functools import partial
+import keyring
 
 class SongWidget(QWidget):
     def __init__(self, song:Song|Score):
@@ -53,7 +58,9 @@ class SongWidget(QWidget):
         
 
         detaillayout=QGridLayout()
-        detaillayout.addWidget(QLabel(self.song.name),0,0,1,2)
+        namelabel=QLabel(self.song.name)
+        namelabel.setAlignment(Qt.AlignCenter)
+        detaillayout.addWidget(namelabel,0,0,1,2)
         detaillayout.addWidget(QLabel("author:"),1,0)
         authorline=QLineEdit(self.song.author)
         authorline.setReadOnly(True)
@@ -137,8 +144,9 @@ class SongListWidget(QWidget):
 
     def showSongDetail(self,songwid:QListWidgetItem):
         self.detailWidget=SongWidget(songwid.data(1))
-        self.mainwindow.mainlayout.addWidget(self.detailWidget)
-        self.mainwindow.mainlayout.setCurrentWidget(self.detailWidget)
+        # self.mainwindow.mainlayout.addWidget(self.detailWidget)
+        # self.mainwindow.mainlayout.setCurrentWidget(self.detailWidget)
+        self.mainwindow.setCentralWidget(self.detailWidget)
 
 class QuestionnaireWidget(QWidget):
     def __init__(self,questionnaire: Questionnaire):
@@ -199,23 +207,167 @@ class QuestionnaireWidget(QWidget):
         self.questionnaire.addUserAnswer("User", user_answer)
         for widget in self.answer_widgets:
             widget.setChecked(False)
+
+      
+class LoginWindow(QWidget):
+    def __init__(self,mainwindow):
+        super().__init__()
+        self.mainwindow=mainwindow
+        choir_label=QLabel("Wybierz chór")
+        self.choir_list=QComboBox()
+        for choir in mainwindow.choirs:
+            self.choir_list.addItem(choir.name,choir)
+
+        username_label = QLabel("Nazwa użytkownika")
+        self.username_input = QLineEdit()
+
+        password_label = QLabel("Hasło")
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+
+        self.login_button = QPushButton("Zaloguj się")
+        self.login_button.clicked.connect(self.handle_login)
+
+        username_layout = QHBoxLayout()
+        username_layout.addWidget(username_label)
+        username_layout.addWidget(self.username_input)
+
+        password_layout = QHBoxLayout()
+        password_layout.addWidget(password_label)
+        password_layout.addWidget(self.password_input)
+
+        self.createchoirbutton=QPushButton("Utwórz nowy chór")
+        self.createchoirbutton.clicked.connect(self.open_creation_viev)
+
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(choir_label)
+        main_layout.addWidget(self.choir_list)
+        main_layout.addLayout(username_layout)
+        main_layout.addLayout(password_layout)
+        main_layout.addWidget(self.login_button)
+        main_layout.addSpacing(30)
+        main_layout.addWidget(self.createchoirbutton)
+        
+        self.setLayout(main_layout)
+
+    def findUser(self,username:str):
+        print("find")
+        for singer in self.choir.singers:
+                if singer.login==username:
+                    return singer
+        for conductor in self.choir.conductors:
+                if conductor.login==username:
+                    return conductor
+                
+    def handle_login(self):
+        username = self.username_input.text()
+        password = self.password_input.text()
+
+        if keyring.get_password("app",username)==password:
+            self.choir:Choir=self.choir_list.currentData()
+            self.user=self.findUser(username)
+            self.song_list_widget = SongListWidget(self.mainwindow)
+            self.mainwindow.setCentralWidget(self.song_list_widget)
+        else:    
+            QMessageBox.warning(self, "Błąd", "Nieprawidłowa nazwa użytkownika lub hasło.")
+        
+        
+    def open_creation_viev(self):
+        creationlayot=QGridLayout()
+        
+        titlelabel=QLabel("Utwórz nowy chór")
+        titlelabel.setAlignment(Qt.AlignCenter)
+        creationlayot.addWidget(titlelabel,0,0,1,2)
+
+        creationlayot.addWidget(QLabel("Uwaga: Za chwilę utworzysz nowy chór i konto dyrygenta nim zarządzające.\n Jeśli chcesz dołączyć do istniejącego chóru skontaktuj się ze swoim dyrygentem."),1,0,2,2)
+
+        creationlayot.addWidget(QLabel("Nazwa chóru: "),3,0)
+        self.choirname=QLineEdit()
+        creationlayot.addWidget(self.choirname,3,1)
+
+        creationlayot.addWidget(QLabel("Nazwa użytkownika: "),4,0)
+        self.username=QLineEdit()
+        creationlayot.addWidget(self.username,4,1)
+
+        creationlayot.addWidget(QLabel("Login użytkownika: "),5,0)
+        self.userlogin=QLineEdit()
+        creationlayot.addWidget(self.userlogin,5,1)
+
+        creationlayot.addWidget(QLabel("Hasło: "),6,0)
+        self.password1=QLineEdit()
+        self.password1.setEchoMode(QLineEdit.Password)
+        creationlayot.addWidget(self.password1,6,1)
+
+        creationlayot.addWidget(QLabel("Powtórz hasło: "),7,0)
+        self.password2=QLineEdit()
+        self.password2.setEchoMode(QLineEdit.Password)
+        creationlayot.addWidget(self.password2,7,1)
+
+        self.createbutton=QPushButton("Utwórz chór")
+        self.createbutton.clicked.connect(self.createnewchoir)
+        creationlayot.addWidget(self.createbutton,8,0,1,2)
+
+        container=QWidget()
+        container.setLayout(creationlayot)
+        self.mainwindow.setCentralWidget(container)
+        
+
+    def createnewchoir(self):
+            print("test1")
+            choir_name = self.choirname.text().strip()
+            username = self.username.text().strip()
+            userlogin = self.userlogin.text().strip()
+            password1 = self.password1.text().strip()
+            password2 = self.password2.text().strip()
+
+            if not choir_name:
+                QMessageBox.warning(self, "Błąd", "Nazwa chóru nie może być pusta.")
+                return
+            if not username:
+                QMessageBox.warning(self, "Błąd", "Nazwa użytkownika nie może być pusta.")
+                return
+            if not userlogin:
+                QMessageBox.warning(self, "Błąd", "Login użytkownika nie może być pusty.")
+                return
+            if not password1 or not password2:
+                QMessageBox.warning(self, "Błąd", "Hasło nie może być puste.")
+                return
+            if password1 != password2:
+                QMessageBox.warning(self, "Błąd", "Hasła nie są zgodne.")
+                return
+            print("test2")
+            newchoir=Choir(choir_name)
+            conductor=Conductor(username,userlogin,password1)
+            newchoir.conductors.append(conductor)
+            try:
+                self.mainwindow.choirapp.addchoir(newchoir)
+            except ValueError:
+                QMessageBox.warning(self, "Błąd", "Nazwa chóru nie jest unikalna")
+                return
+            self.mainwindow.choir=newchoir
+            self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow))
+        
+    
         
 
 
-
-class MainWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self,choirapp):
         super().__init__()
         self.setWindowTitle("Muzyczna Aplikacja")
         self.setGeometry(100, 100, 300, 200)
-        self.choir=choirapp.choirs[0]
+        self.choirapp=choirapp
+        choirapp.read_choirs()
+        self.choirs=choirapp.choirs
+        if len(self.choirs)>0:
+            self.choir=choirapp.choirs[0]
         
-        self.mainlayout = QStackedLayout()
-        
-        self.song_list_widget = SongListWidget(self)
-        self.mainlayout.addWidget(self.song_list_widget)
-        
-        self.setLayout(self.mainlayout)
+        self.logwidget=LoginWindow(self)
+        self.setCentralWidget(self.logwidget)
+    
+    def closeEvent(self,event):
+        self.choirapp.save_choirs()
+        event.accept()
 
 
 if __name__=='__main__':
@@ -245,9 +397,12 @@ if __name__=='__main__':
     #               }
     # )
     # app=Choirapp([choir])
-    # app.save_choirs()
+    
     app = Choirapp()
     app.read_choirs()
+    # app.choirs[0].singers.append(Singer("Zuzia","zuzu","zuzu","sopran"))
+    # app.choirs[0].conductors.append(Conductor("Mateusz","matdej3459","dejefa"))
+    # app.save_choirs()
     gui = QApplication(sys.argv)
     wind=MainWindow(app)
     wind.show()
