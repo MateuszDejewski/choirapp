@@ -186,3 +186,7 @@ class Song:
     def createStartNotes(startnotes:str)->AudioSegment:
         notes=Song.strnotesToRealnotes(startnotes)
         return Song.realnotesTosound(notes)  
+    
+    def deletefiles(self):
+        if Path(self.path).exists():
+            sh.rmtree(self.path)
