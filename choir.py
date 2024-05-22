@@ -1,7 +1,4 @@
-
-
-from conductor import Conductor
-from singer import Singer
+from users import Singer,Conductor
 from song import Song
 from score import Score
 from performance import Performance
@@ -16,7 +13,7 @@ class Choir:
         self.performaces=performances
 
     def addSong(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str=""):
-        song=Song(name,author,description,notes,recordings,startnotes)
+        song=Song(name,author,self,description,notes,recordings,startnotes)
         song.chceckAndDownloadFiles()
         self.songs.append(song)
 

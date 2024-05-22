@@ -9,16 +9,16 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem,
     QScrollArea,QSlider,
     QComboBox,
-    QMessageBox,QDialog
+    QMessageBox,QDialog,
+    QToolBar
 )
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
-from PySide6.QtGui import QImage,QPixmap
+from PySide6.QtGui import QImage,QPixmap,QAction
 from choir import Choir
-from conductor import Conductor
 from questionnaire import Questionnaire
 from score import Score
-from singer import Singer
+from users import User,Singer,Conductor
 from song import Song
 from app import Choirapp
 import fitz
@@ -33,15 +33,86 @@ class MainWindow(QMainWindow):
         self.choirapp:Choirapp=choirapp
         choirapp.read_choirs()
         self.choirs:list[Choir]=choirapp.choirs
-        self.user=None
+        self.user:User=None
         self.choir:Choir=None
         
         self.logwidget=LoginWindow(self)
         self.setCentralWidget(self.logwidget)
+
+        self.toolbar=QToolBar("MainToolbar")
+        self.addToolBar(Qt.TopToolBarArea,self.toolbar)
+        self.toolbar.setVisible(False)
     
     def closeEvent(self,event):
         self.choirapp.save_choirs()
         event.accept()
+
+    
+    def login_successful(self):
+        self.init_toolbar()
+        self.toolbar.setVisible(True)
+        self.clear_central_widget()
+
+    def init_toolbar(self):
+        self.toolbar.clear()
+        
+        # Song list action
+        song_list_action = QAction("Wyświetl listę utworów", self)
+        song_list_action.triggered.connect(self.change_to_songlist)
+        self.toolbar.addAction(song_list_action)
+
+        # Score list action
+        score_list_action = QAction("Wyświetl listę pieśni do nauki", self)
+        score_list_action.triggered.connect(self.change_to_scorelist)
+        self.toolbar.addAction(score_list_action)
+
+        # Performance list action
+        performance_list_action = QAction("Wyświetl listę występów", self)
+        performance_list_action.triggered.connect(self.change_to_performancelist)
+        self.toolbar.addAction(performance_list_action)
+
+        # Manage choir action (only for conductor)
+        if isinstance(self.user, Conductor):
+            manage_choir_action = QAction("Zarządzaj chórem", self)
+            manage_choir_action.triggered.connect(self.change_to_managechoir)
+            self.toolbar.addAction(manage_choir_action)
+
+        # Account management action
+        account_action = QAction("Zarządzaj swoim kontem", self)
+        account_action.triggered.connect(self.change_to_account)
+        self.toolbar.addAction(account_action)
+
+        # Logout action
+        logout_action = QAction("Wyloguj się", self)
+        logout_action.triggered.connect(self.logout)
+        self.toolbar.addAction(logout_action)
+
+    def clear_central_widget(self):
+        self.takeCentralWidget()
+
+    def change_to_songlist(self):
+        self.song_list_widget = SongListWidget(self, self.choir.songs)
+        self.setCentralWidget(self.song_list_widget)
+
+    def change_to_scorelist(self):
+        pass
+
+    def change_to_performancelist(self):
+        pass
+
+    def change_to_managechoir(self):
+        pass
+
+    def change_to_account(self):
+        self.accountwidget = UserdataWidget(self, self.user)
+        self.setCentralWidget(self.accountwidget)
+
+    def logout(self):
+        self.user = None
+        self.choir = None
+        self.logwidget = LoginWindow(self)
+        self.setCentralWidget(self.logwidget)
+        self.toolbar.setVisible(False)
 
 class SongWidget(QWidget):
     def __init__(self, song:Song|Score):
@@ -154,6 +225,11 @@ class SongListWidget(QWidget):
         choir = mainwindow.choir
         self.user=self.mainwindow.user
 
+        if len(choir.songs)==0:
+            QMessageBox.warning(self,"Błąd","Nie żadnych ma pieśni.\nMożesz dodać nowe:)")
+            self.addnewsong()
+            return
+
         self.songlist = QListWidget()
         for song in listofsongs:
             item = QListWidgetItem(song.name)
@@ -161,9 +237,8 @@ class SongListWidget(QWidget):
             self.songlist.addItem(item)
         self.songlist.itemDoubleClicked.connect(self.showSongDetail)
         self.songlist.currentRowChanged.connect(self.changedetails)
-        
 
-        self.song = choir.songs[0]
+        self.song=choir.songs[0]          
         self.detaillayout = QGridLayout()
         self.detaillayout.setSpacing(10)
         self.namelabel = QLabel(self.song.name)
@@ -177,7 +252,7 @@ class SongListWidget(QWidget):
         self.descline = QLineEdit(self.song.description)
         self.descline.setMinimumHeight(60)
         self.descline.setReadOnly(True)
-        self.detaillayout.addWidget(self.descline, 3, 0, 2, 2)
+        self.detaillayout.addWidget(self.descline, 2, 1, 2, 1)
 
         self.notes_label = QLineEdit()
         self.notes_label.setReadOnly(True)
@@ -223,7 +298,10 @@ class SongListWidget(QWidget):
         self.mainwindow.setCentralWidget(AddSongWidget(self.mainwindow))
 
     def editsong(self):
-        pass
+        song = self.songlist.currentItem().data(1)
+        self.mainwindow.setCentralWidget(EditSongWidget(self.mainwindow, song))
+        
+        
 
     def deletesong(self):
         if isinstance(self.song,Score):
@@ -231,8 +309,7 @@ class SongListWidget(QWidget):
         if isinstance(self.song,Song):
             self.song.deletefiles()
             self.mainwindow.choir.songs.remove(self.song)
-        self.songlist.removeItemWidget(self.songlist.currentItem())
-        self.songlist.repaint()
+        self.songlist.takeItem(self.songlist.currentRow())
         self.songlist.setCurrentRow(0)        
 
     def updateDetails(self):
@@ -387,6 +464,135 @@ class AddSongWidget(QWidget):
         else:
             QMessageBox.warning(self, "Błąd", "Piosenka musi mieć nazwę")
 
+class EditSongWidget(QWidget):
+    def __init__(self, mainwindow: MainWindow, song: Song):
+        super().__init__()
+        self.mainwindow = mainwindow
+        self.choir = mainwindow.choir
+        self.user = self.mainwindow.user
+        self.song = song
+
+        self.setWindowTitle("Edytuj Piosenkę")
+        self.setGeometry(100, 100, 400, 300)
+
+        layout = QVBoxLayout()
+
+        self.name_label = QLabel("Nazwa piosenki:")
+        self.name_input = QLineEdit(self.song.name)
+
+        self.author_label = QLabel("Autor:")
+        self.author_input = QLineEdit(self.song.author)
+
+        self.description_label = QLabel("Opis:")
+        self.description_input = QTextEdit(self.song.description)
+
+        self.add_notes_button = QPushButton("Dodaj nuty")
+        self.add_notes_button.clicked.connect(self.open_add_notes_dialog)
+
+        self.notes_list = QListWidget()
+        for note in self.song.notes.keys():
+            self.notes_list.addItem(note)
+
+        self.remove_notes_button = QPushButton("Usuń wybrane nuty")
+        self.remove_notes_button.clicked.connect(self.remove_selected_notes)
+
+        self.add_recording_button = QPushButton("Dodaj nagranie")
+        self.add_recording_button.clicked.connect(self.open_add_recording_dialog)
+
+        self.recordings_list = QListWidget()
+        for recording in self.song.recordings.keys():
+            self.recordings_list.addItem(recording)
+
+        self.remove_recording_button = QPushButton("Usuń wybrane nagranie")
+        self.remove_recording_button.clicked.connect(self.remove_selected_recording)
+
+        self.startingnotes_label = QLabel("Dźwięki początkowe: (np. A4 F#4 Bb3 F2)")
+        self.startingnotes_input = QLineEdit(self.song.startsound)
+
+        self.save_button = QPushButton("Zapisz zmiany")
+        self.save_button.clicked.connect(self.save_song)
+
+        layout.addWidget(self.name_label)
+        layout.addWidget(self.name_input)
+        layout.addWidget(self.author_label)
+        layout.addWidget(self.author_input)
+        layout.addWidget(self.description_label)
+        layout.addWidget(self.description_input)
+        
+        notes_layout = QVBoxLayout()
+        notes_layout.addWidget(QLabel("Lista nut:"))
+        notes_layout.addWidget(self.notes_list)
+        notes_layout.addWidget(self.add_notes_button)
+        notes_layout.addWidget(self.remove_notes_button)
+        
+        recordings_layout = QVBoxLayout()
+        recordings_layout.addWidget(QLabel("Lista nagrań:"))
+        recordings_layout.addWidget(self.recordings_list)
+        recordings_layout.addWidget(self.add_recording_button)
+        recordings_layout.addWidget(self.remove_recording_button)
+        
+        layout.addLayout(notes_layout)
+        layout.addLayout(recordings_layout)
+        layout.addWidget(self.startingnotes_label)
+        layout.addWidget(self.startingnotes_input)
+        layout.addWidget(self.save_button)
+
+        self.setLayout(layout)
+
+        self.recordings = self.song.recordings.copy()
+        self.notes = self.song.notes.copy()
+
+    def open_add_recording_dialog(self):
+        dialog = AddresourceDialog("Dodawanie nagrania", "Nazwa nagrania: ")
+        if dialog.exec_():
+            name, url = dialog.resource
+            self.recordings[name] = url
+            self.recordings_list.addItem(name)
+
+    def open_add_notes_dialog(self):
+        dialog = AddresourceDialog("Dodawanie nut", "Nazwa pliku z nutami: ")
+        if dialog.exec_():
+            name, url = dialog.resource
+            self.notes[name] = url
+            self.notes_list.addItem(name)
+
+    def remove_selected_notes(self):
+        selected_items = self.notes_list.selectedItems()
+        if not selected_items:
+            return
+        for item in selected_items:
+            name = item.text()
+            del self.notes[name]
+            self.notes_list.takeItem(self.notes_list.row(item))
+
+    def remove_selected_recording(self):
+        selected_items = self.recordings_list.selectedItems()
+        if not selected_items:
+            return
+        for item in selected_items:
+            name = item.text()
+            del self.recordings[name]
+            self.recordings_list.takeItem(self.recordings_list.row(item))
+
+    def save_song(self):
+        name = self.name_input.text().strip()
+        author = self.author_input.text().strip()
+        description = self.description_input.toPlainText().strip()
+        startnotes = self.startingnotes_input.text().strip()
+
+        if not name:
+            QMessageBox.warning(self, "Błąd", "Piosenka musi mieć nazwę")
+            return
+
+        self.song.name = name
+        self.song.author = author
+        self.song.description = description
+        self.song.notes = self.notes
+        self.song.recordings = self.recordings
+        self.song.startsound = startnotes
+
+        self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow, self.mainwindow.choir.songs))
+
 class QuestionnaireWidget(QWidget):
     def __init__(self,questionnaire: Questionnaire):
         super().__init__()
@@ -534,6 +740,7 @@ class MenuWidget(QWidget):
         self.mainwindow=mainWindow
         self.user=self.mainwindow.user
         
+        self.mainwindow.login_successful()
 
         menulayout=QVBoxLayout()
 
@@ -581,7 +788,8 @@ class MenuWidget(QWidget):
         pass
 
     def change_to_account(self):
-        pass
+        self.accountwidget=UserdataWidget(self.mainwindow,self.user)
+        self.mainwindow.setCentralWidget(self.accountwidget)
 
     def logout(self):
         self.mainwindow.setCentralWidget(LoginWindow(self.mainwindow))
@@ -643,6 +851,9 @@ class LoginWindow(QWidget):
         if keyring.get_password("app",username)==password:
             self.choir:Choir=self.choir_list.currentData()
             self.user=self.findUser(username)
+            if self.user==None:
+                QMessageBox.warning(self, "Błąd", "Nieprawidłowe dane logowania lub wybrany chór.")
+                return
             self.mainwindow.user=self.user 
             self.mainwindow.choir=self.choir
             menu=MenuWidget(self.mainwindow)
@@ -654,15 +865,107 @@ class LoginWindow(QWidget):
         self.creation=CreatechoirWidget(self.mainwindow)
         self.mainwindow.setCentralWidget(self.creation)
 
+class UserdataWidget(QWidget):
+    def __init__(self, mainwindow:MainWindow,user:User) -> None:
+        super().__init__()
+        self.mainwidnow=mainwindow
+        self.user=user
+
+        layout=QGridLayout()
+        layout.addWidget(QLabel("Nazwa użytkownika: "),0,0)
+        self.usernameline=QLineEdit(self.user.name)
+        layout.addWidget(self.usernameline,0,1)
+
+        layout.addWidget(QLabel("Login: "),1,0)
+        self.loginline=QLineEdit(self.user.login)
+        layout.addWidget(self.loginline,1,1)
+
+        layout.addWidget(QLabel("Obecne hasło: "),2,0)
+        self.password1=QLineEdit()
+        self.password1.setEchoMode(QLineEdit.Password)
+        layout.addWidget(self.password1,2,1)
+
+        layout.addWidget(QLabel("Nowe hasło: "),3,0)
+        self.password2=QLineEdit()
+        self.password2.setEchoMode(QLineEdit.Password)
+        layout.addWidget(self.password2,3,1)
+
+        layout.addWidget(QLabel("Powtórz nowe hasło: "),4,0)
+        self.password3=QLineEdit()
+        self.password3.setEchoMode(QLineEdit.Password)
+        layout.addWidget(self.password3,4,1)
+
+        if isinstance(self.user,Singer):
+            layout.addWidget(QLabel("Podstawowy głos: "),5,0)
+            self.voiceline=QLineEdit(self.user.basicvoice)
+            self.voiceline.setReadOnly(True)
+            layout.addWidget(self.voiceline,5,1)
+
+        self.savebutton=QPushButton("Zapisz zmiany")
+        self.savebutton.clicked.connect(self.save)
+        layout.addWidget(self.savebutton,5,0,1,2)
+
+        self.setLayout(layout)
+
+    def save(self):
+        username=self.usernameline.text().strip()
+        if username!=self.user.name:
+            if not username:
+                QMessageBox.warning(self, "Błąd", "Nazwa użytkownika nie może być pusta.")
+                return
+            else:
+                self.user.name=username
+        
+        login=self.loginline.text().strip()
+        if login!=self.user.login: 
+            if not login:
+                QMessageBox.warning(self, "Błąd", "Login nie może być pusty.")
+                return
+            elif not keyring.get_credential("app",login):
+                QMessageBox.warning(self, "Błąd", "Login musi być unikalny.")
+                return
+            else:
+                self.user.changelogin(login)
+
+        if self.password1.isModified():
+            password1=self.password1.text().strip()
+            password2=self.password2.text().strip()
+            password3=self.password3.text().strip()
+
+            if password1!=keyring.get_password("app",self.user.login):
+                QMessageBox.warning(self, "Błąd", "Hasło jest niepoprawne.")
+                return
+            if not password3 or not password2:
+                QMessageBox.warning(self, "Błąd", "Nowe hasło nie może być puste.")
+                return
+            if password2 != password3:
+                QMessageBox.warning(self, "Błąd", "Nowe hasła nie są zgodne.")
+                return
+
+            self.user.changepassword(password3)
+        
+        self.mainwidnow.setCentralWidget(MenuWidget(self.mainwidnow))
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__=='__main__':
     # choir=Choir("karmel")
-    # choir.addSong(name="Chwała Tobie Królu Wieków",
-    #               notes={"Chwała Tobie Królu Wieków.pdf":"C:/moje_prace/schola/nuty/Chwala_Tobie_Slowo_Boze.pdf"},
-    #               recordings={"tenor.wav":"https://drive.google.com/file/d/1nKHHkY50q3uyoShJNviIPex8UXy5HTAL/view?usp=drive_link",
-    #                           "Bas.wav":"https://drive.google.com/file/d/1DipBRnOjiDvpTHeQBKIb8ZbuPW-PX_dq/view?usp=drive_link",
-    #                           "Przykldowe_wykonanie.wav":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},#"Przykladowe wykonanie.mp3":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},
-    #                 startnotes="A5 Eb5 C5 C4")
+    # # # choir.addSong(name="Chwała Tobie Królu Wieków",
+    # # #               notes={"Chwała Tobie Królu Wieków.pdf":"C:/moje_prace/schola/nuty/Chwala_Tobie_Slowo_Boze.pdf"},
+    # # #               recordings={"tenor.wav":"https://drive.google.com/file/d/1nKHHkY50q3uyoShJNviIPex8UXy5HTAL/view?usp=drive_link",
+    # # #                           "Bas.wav":"https://drive.google.com/file/d/1DipBRnOjiDvpTHeQBKIb8ZbuPW-PX_dq/view?usp=drive_link",
+    # # #                           "Przykldowe_wykonanie.wav":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},#"Przykladowe wykonanie.mp3":'https://www.youtube.com/watch?v=AI2hcI3uoO8'},
+    # # #                 startnotes="A5 Eb5 C5 C4")
     
     # choir.addSong("Deus miserere mei",
     #               notes={"Deus miserere mei.pdf":"https://drive.google.com/file/d/1h6V1yRi1uSyMP1YHK5n8fcsl5mlljqq0/view?usp=drive_link"},
@@ -686,6 +989,10 @@ if __name__=='__main__':
     # app.choirs[0].singers.append(Singer("Zuzia","zuzu","zuzu","sopran"))
     # app.choirs[0].conductors.append(Conductor("Mateusz","matdej3459","dejefa"))
     # app.save_choirs()
+    # app=Choirapp()
+    # app.read_choirs()
+    # app.save_choirs()
+
     gui = QApplication(sys.argv)
     wind=MainWindow(Choirapp())
     wind.show()

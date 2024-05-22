@@ -1,6 +1,6 @@
 import pendulum
 from score import Score
-from singer import Singer
+from users import Singer,Conductor
 from song import Song
 
 class Performance:

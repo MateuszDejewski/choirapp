@@ -1,9 +1,8 @@
 
 from questionnaire import Questionnaire
 from song import Song
-from singer import Singer
+from users import Singer,Conductor
 from music21 import interval
-from pydub.playback import play
 
 
 class Score:

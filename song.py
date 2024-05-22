@@ -10,17 +10,16 @@ from music21 import note
 import pydub
 from pydub import AudioSegment
 from pydub.generators import Sine
-from pydub.playback import play
 import pygame
 from moviepy.editor import *
 
-#pydub.AudioSegment.ffmpeg="C:/Users/mateu/ffmpeg-7.0-full_build/bin"
+
 
 
 class Song:
-    def __init__(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str="") -> None:
+    def __init__(self,name:str,author:str,choir,description:str="",notes=None,recordings=None,startnotes:str="") -> None:
         self.name=name
-        self.path = "songs\\"+name
+        self.path = os.path.join("songs",choir.name,name)
         self.author=author
         self.description=description
         if notes:
@@ -36,13 +35,18 @@ class Song:
             self.startsound=Song.createStartNotes(startnotes)
         else:
             self.startsound=None
+        
+        olddir=os.getcwd()
         if not Path("songs").exists():
             os.mkdir("songs")
-        if not Path(self.path).exists():
-            oldpath=os.getcwd()
-            os.chdir("songs")
-            os.mkdir(self.path[6:])
-            os.chdir(oldpath)
+        os.chdir("songs")
+        if not Path(choir.name).exists():
+            os.mkdir(choir.name)
+        os.chdir(choir.name)
+        if not Path(name).exists():
+            os.mkdir(name)
+        
+        os.chdir(olddir)
         pygame.mixer.init()
         self.playobj=None
 
