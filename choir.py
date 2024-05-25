@@ -11,7 +11,7 @@ class Choir:
         self.singers=singers
         self.songs=songs
         self.scores=scores
-        self.performaces=performances
+        self.performances=performances
         self.qusetionnaires=questionnaires
 
     def addSong(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str=""):
@@ -19,21 +19,23 @@ class Choir:
         song.chceckAndDownloadFiles()
         self.songs.append(song)
     
-    def addScore(self,song:Song,conductorcomments:str="",transposition:int=0,avaliable:bool=True,forUsers:dict[Singer:str]=dict()):
+    def addScore(self,song:Song,conductorcomments:str="",transposition:int=0,avaliable:bool=True,forUsers:list[Singer]=[]):
         score=Score(song,conductorcomments,transposition,avaliable,forUsers)
         self.scores.append(score)
-
-    def getSocoresForSinger(self,singer:Singer):
+    
+    def getScoresForSinger(self,singer:Singer):
         scorelist=[]
         for score in self.scores:
             if score.avaliable or singer in score.forUsers:
                 scorelist.append(score)
+        return scorelist
     
     def getPerformancesForSinger(self,singer:Singer):
         perflist=[]
-        for perf in self.performaces:
+        for perf in self.performances:
             if singer in perf.singers:
                 perflist.append(perf)
+        return perflist
     
     def removeQuestionnaire(self,questionnaire:Questionnaire):
         self.qusetionnaires.remove(questionnaire)

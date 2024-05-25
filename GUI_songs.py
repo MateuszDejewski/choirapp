@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QScrollArea,QSlider,
     QComboBox,
     QMessageBox,QDialog,
-    QToolBar,QDialogButtonBox
+    QToolBar,QDialogButtonBox,QLCDNumber
 )
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
@@ -129,8 +129,6 @@ class SongListWidget(QWidget):
             
         self.isScore=isinstance(listofsongs[0],Score)
 
-        
-
         self.songlist = QListWidget()
         for song in listofsongs:
             item = QListWidgetItem(song.song.name) if self.isScore else QListWidgetItem(song.name)
@@ -141,38 +139,57 @@ class SongListWidget(QWidget):
 
         self.song=listofsongs[0]
         if self.isScore:
+            self.score=song
             self.song=self.song.song       
         self.detaillayout = QGridLayout()
         self.detaillayout.setSpacing(10)
         self.namelabel = QLabel(self.song.name)
         self.namelabel.setAlignment(Qt.AlignCenter)
         self.detaillayout.addWidget(self.namelabel, 0, 0, 1, 2)
-        self.detaillayout.addWidget(QLabel("autor:"), 1, 0)
+        
+        row=1
+        if self.isScore:
+            self.detaillayout.addWidget(QLabel("uwagi dyrygenta"), 1, 0)
+            self.conductorcomment_output = QLineEdit(self.score.conductorcomments)
+            self.conductorcomment_output.setReadOnly(True)
+            self.detaillayout.addWidget(self.conductorcomment_output, 1, 1)
+            self.detaillayout.addWidget(QLabel("Transpozycja:"), 2, 0)
+            self.transposition_output = QLCDNumber()
+            self.transposition_output.display(self.score.transposition)
+            self.detaillayout.addWidget(self.transposition_output, 2, 1)
+            self.availablelabel = QLineEdit()
+            self.availablelabel.setReadOnly(True)
+            self.detaillayout.addWidget(self.availablelabel, 3, 0, 1, 2)
+            row=4
+
+
+        self.detaillayout.addWidget(QLabel("autor:"), row, 0)
         self.authorline = QLineEdit(self.song.author)
         self.authorline.setReadOnly(True)
-        self.detaillayout.addWidget(self.authorline, 1, 1)
-        self.detaillayout.addWidget(QLabel("opis:"), 2, 0)
+        self.detaillayout.addWidget(self.authorline, row, 1)
+        row+=1
+        self.detaillayout.addWidget(QLabel("opis:"), row, 0)
         self.descline = QLineEdit(self.song.description)
         self.descline.setMinimumHeight(60)
         self.descline.setReadOnly(True)
-        self.detaillayout.addWidget(self.descline, 2, 1, 2, 1)
-
+        self.detaillayout.addWidget(self.descline, row, 1, 2, 1)
+        row+=1
         self.notes_label = QLineEdit()
         self.notes_label.setReadOnly(True)
-        self.detaillayout.addWidget(self.notes_label, 4, 0, 1, 2)
-
+        self.detaillayout.addWidget(self.notes_label, row, 0, 1, 2)
+        row+=1
         self.startsound_label = QLineEdit()
         self.startsound_label.setReadOnly(True)
-        self.detaillayout.addWidget(self.startsound_label, 5, 0, 1, 2)
-
-        self.detaillayout.addWidget(QLabel("Lista nagrań:"),6,0,1,2)
-
+        self.detaillayout.addWidget(self.startsound_label, row, 0, 1, 2)
+        row+=1
+        self.detaillayout.addWidget(QLabel("Lista nagrań:"),row,0,1,2)
+        row+=1
         self.recordinglist = QListWidget()
-        self.detaillayout.addWidget(self.recordinglist, 7, 0, 3, 2)
-
+        self.detaillayout.addWidget(self.recordinglist, row, 0, 3, 2)
+        row+=3
         self.openbutton=QPushButton("Zobacz utwór")
         self.openbutton.clicked.connect(lambda: self.showSongDetail(self.songlist.currentItem()))
-        self.detaillayout.addWidget(self.openbutton,11,0,1,2)
+        self.detaillayout.addWidget(self.openbutton,row,0,1,2)
 
         if isinstance(self.user,Conductor):
             self.editbutton=QPushButton("Edytuj utwór")
@@ -205,9 +222,9 @@ class SongListWidget(QWidget):
         self.mainwindow.setCentralWidget(EditSongWidget(self.mainwindow, song))
         
     def deletesong(self):
-        if isinstance(self.song,Score):
-            self.mainwindow.choir.scores.remove(self.song)    
-        if isinstance(self.song,Song):
+        if self.isScore:
+            self.mainwindow.choir.scores.remove(self.songlist.currentItem().data(1))    
+        else:
             self.song.deletefiles()
             self.mainwindow.choir.songs.remove(self.song)
         self.songlist.takeItem(self.songlist.currentRow())
@@ -217,7 +234,12 @@ class SongListWidget(QWidget):
         self.namelabel.setText(self.song.name)
         self.authorline.setText(self.song.author)
         self.descline.setText(self.song.description)
-        
+
+        if self.isScore:
+            self.conductorcomment_output.setText(self.score.conductorcomments)
+            self.transposition_output.display(self.score.transposition)
+            self.availablelabel.setText("Utwór dospępny dla wszysktich chórzystów" if self.score.avaliable else "Utwór dostępny tylko dla wybranych chórzystów")
+
         if len(self.song.notes) > 0:
             notes_text = "Nuty są dostępne"
         else:
@@ -237,6 +259,7 @@ class SongListWidget(QWidget):
     def changedetails(self):
         self.song = self.songlist.currentItem().data(1)
         if self.isScore:
+            self.score=self.score
             self.song=self.song.song
         self.updateDetails()
 

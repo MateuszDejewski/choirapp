@@ -6,7 +6,7 @@ from music21 import interval
 
 
 class Score:
-    def __init__(self,song:Song,conductorcomments:str="",transposition:int=0,avaliable:bool=True,forUsers:dict[Singer:str]=dict()) -> None:
+    def __init__(self,song:Song,conductorcomments:str="",transposition:int=0,avaliable:bool=True,forUsers:list[Singer]=[]) -> None:
         self.song=song
         self.questionare=Questionnaire("Czy znasz pieśń:"+self.song.name+"?",about=self,possibleAnswers=["Tak, czuje się w niej pewnie", "Tak, ale wymaga powtórzenia", "Jeszcze się jej uczę", "Na razie nie znam"])
         self.conductorcomments=conductorcomments
@@ -24,6 +24,9 @@ class Score:
         """
         transpose starting notes by change number of semitons f.e. -2, -6
         """
+        if not strNotes or strNotes=="":
+            return None
+        
         notes=Song.strnotesToRealnotes(strNotes)
         inter=interval.Interval(change)
         for nt in notes:
@@ -43,5 +46,9 @@ class Score:
         else:
             self.song.playStartNotes()
 
-    def shareToSinger(self,singer:Singer,comment:str):
-        self.forUsers[singer]=comment
+    # def shareToSinger(self,singer:Singer,comment:str):
+    #     self.forUsers[singer]=comment
+
+    def shareToSinger(self,singer:Singer):
+        self.forUsers.append(singer)
+                
