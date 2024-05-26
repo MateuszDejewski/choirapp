@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QToolBar,QDateEdit
 )
 from GUI_scores import AddScoreWidget
+from GUI_songs import SongWidget
 from performance import Performance
 from score import Score
 from users import User,Singer,Conductor
@@ -44,18 +45,28 @@ class PerformanceWidget(QWidget):
 
         self.songlist = QListWidget()
         for score in self.performance.songs: 
-            self.songlist.addItem(QListWidgetItem(score.song.name))
-        
+            item=QListWidgetItem(score.song.name)
+            item.setData(1,score)
+            self.songlist.addItem(item)
+
+        self.songlist.itemDoubleClicked.connect(self.openscore)
+
         layout.addWidget(QLabel("Lista utworów:"))
         layout.addWidget(self.songlist)
 
         self.singerlist = QListWidget()
         for singer in self.performance.singers: 
-            self.songlist.addItem(QListWidgetItem(singer.name))
+            self.singerlist.addItem(QListWidgetItem(singer.name))
+        
         
         layout.addWidget(QLabel("Lista śpiewających"))
         layout.addWidget(self.singerlist)
         self.setLayout(layout)
+
+    def openscore(self,songwid: QListWidgetItem):
+        self.scoreview = SongWidget(songwid.data(1),self.user)
+        self.scoreview.show()
+        
 
 class AddPerforamnceWidget(QWidget):
     def __init__(self,mainwidnow:MainWindow)-> None:
@@ -90,8 +101,6 @@ class AddPerforamnceWidget(QWidget):
             self.scorelist.addItem(item)
         
         layout.addWidget(self.scorelist,6,0,3,1)
-        # layout.addWidget(self.songlist,6,0,3,1)
-        # self.songlist.hide()
 
         
         self.addEndSongbutton=QPushButton("Dodaj utwór na koniec")
@@ -152,8 +161,16 @@ class AddPerforamnceWidget(QWidget):
         self.addscorewid.available_checkbox.hide()
         self.addscorewid.singerlist.hide()
         self.addscorewid.cancelbutton.hide()
+        self.addscorewid.inthebackground=True
         self.addscorewid.setWindowTitle("Dodawanie aranżacji")
         self.addscorewid.show()
+        self.addscorewid.hideEvent= lambda event:self.refreshscorelist()
+
+    def refreshscorelist(self):
+        newscore=self.mainwindow.choir.scores[-1]
+        additem=QListWidgetItem(newscore.song.name)
+        additem.setData(1,newscore)
+        self.scorelist.addItem(additem)
 
     
     def setPerformance(self, performance):

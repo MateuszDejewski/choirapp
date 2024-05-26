@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
 
     def setCentralWidget(self,widget):
         super().setCentralWidget(widget)
-        pygame.mixer.stop()
+        pygame.mixer.music.stop()
     
     def login_successful(self):
         self.init_toolbar()
@@ -506,7 +506,7 @@ class ChoirmanegementWidget(QWidget):
         detail_layout.addRow("Hasło:", self.password_edit)
 
         self.role_combo = QComboBox()
-        self.role_combo.addItems(["Dyrygent", "Chórzysta"])
+        self.role_combo.addItems(["Chórzysta","Dyrygent"])
         self.role_combo.currentTextChanged.connect(self.role_changed)
         detail_layout.addRow("Rola",self.role_combo)
 

@@ -12,7 +12,7 @@ from pydub import AudioSegment
 from pydub.generators import Sine
 import pygame
 from moviepy.editor import *
-
+pygame.mixer.init()
 
 
 
@@ -47,7 +47,6 @@ class Song:
             os.mkdir(name)
         
         os.chdir(olddir)
-        pygame.mixer.init()
         self.playobj=None
 
     def addFromPath(self,name:str,path:str)->str:
@@ -69,7 +68,6 @@ class Song:
         os.chdir(oldpath)
 
     def addRecordingFromYoutube(self,file:str,url:str)->None:
-            #download_audio_from_youtube(url,file)
             olddir=os.getcwd()
             os.chdir(self.path)
 
@@ -77,17 +75,10 @@ class Song:
             stream = yt.streams.filter(only_audio=True,file_extension='mp4').first()
             download_path = stream.download(filename="audio.mp4")
 
-            import subprocess
-            output_file = os.path.splitext(file)[0]+".wav"
-            command = ["ffmpeg", "-i", download_path, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2", output_file]
-            subprocess.call(command)
-            # audio_clip = AudioFileClip(download_path)
-            # audio_clip.write_audiofile(file, codec='pcm_s16le')
-            
-            #Usuń tymczasowy plik MP4
-            os.remove(download_path)
+            Song.convertToMP3("audio.mp4",file,"mp4")
+            os.remove("audio.mp4")
             os.chdir(olddir)
-            return '.wav'
+            return ".mp3"
             
 
     def addnotes(self,resource:str,name:str="",ext:str=""):
@@ -99,14 +90,30 @@ class Song:
             ext = self.addFromPath(name,resource)
         self.notes[(name+ext)]=resource
     
+    def convertToMP3(inputpath:str,outputpath:str,ext:str):
+        try:
+            audio=AudioSegment.from_file(inputpath,format=ext)
+            audio.export(outputpath,format='mp3')
+        except Exception:
+            raise RuntimeError("Unable to conver file")
+
+
     def addrecording(self,name:str,resource:str,ext:str=""):
         if resource.startswith("https://drive.google.com"):
             self.addFromGoogleDrive(name=name,url=resource,ext=ext)
         elif resource.startswith("https://www.youtube.com") or resource.startswith("https://youtu.be"):
-            ext=self.addRecordingFromYoutube(name+".wav",resource)
+            ext=self.addRecordingFromYoutube(name+".mp3",resource)
         else:
             ext = self.addFromPath(name+ext,resource)
-        self.recordings[(name+ext)]=resource
+        if ext!='.mp3' and ext!='.wav': 
+            try:
+                olddir=os.getcwd()
+                os.chdir(self.path)
+                Song.convertToMP3(name+ext,name+'.mp3',ext[1:])
+                ext='.mp3'
+            finally:
+                os.chdir=olddir
+                self.recordings[(name+ext)]=resource
 
     def chceckAndDownloadFiles(self)->None:
         noteitems=list(self.notes.items())
@@ -130,18 +137,12 @@ class Song:
                 if not filepath.exists():
                     n,ext=os.path.splitext(name)
                     self.addrecording(n,self.recordings[name],ext)
-
-                # wave_obj=sa.WaveObject.from_wave_file(str(filepath))
-                # if self.playobj and self.playobj.is_playing():
-                #     self.playobj.stop()
-                # self.playobj=wave_obj.play()
-                
+               
                 pygame.mixer.music.stop()
                 pygame.mixer.music.load(filepath)
                 
                 pygame.mixer.music.play()
 
-                print("plaied")
        
     
     def playStartNotes(self,filename:str="startsound.wav"):
