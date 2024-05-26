@@ -15,6 +15,10 @@ class Questionnaire:
         self.answers[answer]=[]
 
     def addUserAnswer(self,user,answer:list[str]|str)->bool:
+        for k,v in list(self.answers.items()):
+            if user in v:
+                v.remove(user)
+        
         if isinstance(answer,str):
             if not answer in self.possibleAnswers:
                 if self.addingNewAnswers:

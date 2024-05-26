@@ -34,7 +34,7 @@ from GUI_performance import PerformancelistWidget
 class MainWindow(QMainWindow):
     def __init__(self,choirapp:Choirapp):
         super().__init__()
-        self.setWindowTitle("Muzyczna Aplikacja")
+        self.setWindowTitle("Aplikacja chóralna")
         self.setGeometry(100, 100, 300, 200)
         self.choirapp:Choirapp=choirapp
         choirapp.read_choirs()
@@ -106,15 +106,17 @@ class MainWindow(QMainWindow):
 
     def change_to_songlist(self):
         self.song_list_widget = SongListWidget(self, self.choir.songs)
-        self.setCentralWidget(self.song_list_widget)
+        if len(self.song_list_widget.listofsongs)>0:
+            self.setCentralWidget(self.song_list_widget)
 
     def change_to_scorelist(self):
         if isinstance(self.user,Singer):
-            scorelist=self.choir.getSocoresForSinger(self.user)
+            scorelist=self.choir.getScoresForSinger(self.user)
             self.score_list_widget=ScorelistWidget(self,scorelist if scorelist else [])
         else:
             self.score_list_widget=ScorelistWidget(self,self.choir.scores)
-        self.setCentralWidget(self.score_list_widget)
+        if len(self.score_list_widget.listofsongs)>0:
+            self.setCentralWidget(self.score_list_widget)
 
     def change_to_performancelist(self):
         if isinstance(self.user,Singer):
@@ -122,7 +124,8 @@ class MainWindow(QMainWindow):
             self.performance_list_widget=PerformancelistWidget(self,perflist if perflist else [])
         else:
             self.performance_list_widget=PerformancelistWidget(self,self.choir.performances)
-        self.setCentralWidget(self.performance_list_widget)
+        if len(self.performance_list_widget.performances)>0:
+            self.setCentralWidget(self.performance_list_widget)
 
     def change_to_questlist(self):
         self.questmanagement=QuestionnaireManagementWidget(self)
@@ -152,8 +155,10 @@ class MenuWidget(QWidget):
         self.mainwindow.login_successful()
 
         menulayout=QVBoxLayout()
-
-        menulayout.addWidget(QLabel("Jesteś zalogowany jako "+self.user.name))
+        
+        namelabel=QLabel("Jesteś zalogowany jako "+self.user.name)
+        namelabel.setAlignment(Qt.AlignCenter)
+        menulayout.addWidget(namelabel)
 
 
         self.songlistbutton=QPushButton("Wyświetl listę utworów")
@@ -189,7 +194,8 @@ class MenuWidget(QWidget):
 
     def change_to_songlist(self):
         self.song_list_widget = SongListWidget(self.mainwindow,self.mainwindow.choir.songs)
-        self.mainwindow.setCentralWidget(self.song_list_widget)
+        if len(self.song_list_widget.listofsongs)>0:
+            self.mainwindow.setCentralWidget(self.song_list_widget)
 
     def change_to_scorelist(self):
         if isinstance(self.user,Singer):
@@ -197,7 +203,8 @@ class MenuWidget(QWidget):
             self.score_list_widget=ScorelistWidget(self.mainwindow,scorelist if scorelist else [])
         else:
             self.score_list_widget=ScorelistWidget(self.mainwindow,self.mainwindow.choir.scores)
-        self.mainwindow.setCentralWidget(self.score_list_widget)
+        if len(self.score_list_widget.listofsongs)>0:
+            self.mainwindow.setCentralWidget(self.score_list_widget)
 
     def change_to_performancelist(self):
         if isinstance(self.user,Singer):
@@ -205,7 +212,8 @@ class MenuWidget(QWidget):
             self.performance_list_widget=PerformancelistWidget(self.mainwindow,perflist if perflist else [])
         else:
             self.performance_list_widget=PerformancelistWidget(self.mainwindow,self.mainwindow.choir.performances)
-        self.mainwindow.setCentralWidget(self.performance_list_widget)
+        if len(self.performance_list_widget.performances)>0:
+            self.mainwindow.setCentralWidget(self.performance_list_widget)
 
     def change_to_questlist(self):
         self.questmanagement=QuestionnaireManagementWidget(self.mainwindow)

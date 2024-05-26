@@ -93,7 +93,7 @@ class SongWidget(QWidget):
             startsound_button=QPushButton("Odtwórz dźwięki początkowe")
             startsound_button.clicked.connect(self.play_startsound)
             detaillayout.addWidget(startsound_button,i,0,1,2)
-        if self.score:
+        if self.score and isinstance(self.user,Singer):
             self.questwid=QuestionnaireWidget(self.score.questionare,user)
             detaillayout.addWidget(self.questwid,i+1,0,4,2)
         
@@ -123,6 +123,7 @@ class SongListWidget(QWidget):
         self.mainwindow = mainwindow
         choir = mainwindow.choir
         self.user=self.mainwindow.user
+        self.listofsongs=listofsongs
         if len(listofsongs)==0:
             if isinstance(self.user,Conductor):
                 QMessageBox.warning(self,"Błąd","Nie żadnych ma pieśni.\nMożesz dodać nowe:)")
@@ -142,6 +143,20 @@ class SongListWidget(QWidget):
         self.songlist.itemDoubleClicked.connect(self.showSongDetail)
         self.songlist.currentRowChanged.connect(self.changedetails)
 
+        searchlayout=QHBoxLayout()
+        self.nameinput=QLineEdit("")
+        self.taginput=QComboBox()
+        self.taginput.addItem("--dowolny--")
+        self.taginput.addItems(list(self.mainwindow.choir.tagsdict.keys()))
+        self.searchbutton=QPushButton("Wyszukaj")
+        self.searchbutton.clicked.connect(self.search)
+        searchlayout.addWidget(QLabel("Nazwa utworu:"))
+        searchlayout.addWidget(self.nameinput)
+        searchlayout.addWidget(QLabel("tag:"))
+        searchlayout.addWidget(self.taginput)
+        searchlayout.addWidget(self.searchbutton)
+
+
         self.song=listofsongs[0]
         if self.isScore:
             self.score=song
@@ -152,20 +167,25 @@ class SongListWidget(QWidget):
         self.namelabel.setAlignment(Qt.AlignCenter)
         self.detaillayout.addWidget(self.namelabel, 0, 0, 1, 2)
         
-        row=1
+        self.taglist=QListWidget()
+
+        self.detaillayout.addWidget(QLabel("Tagi:"),1,0)
+        self.detaillayout.addWidget(self.taglist,1,1)        
+
+        row=2
         if self.isScore:
-            self.detaillayout.addWidget(QLabel("uwagi dyrygenta"), 1, 0)
+            self.detaillayout.addWidget(QLabel("uwagi dyrygenta"), 2, 0)
             self.conductorcomment_output = QLineEdit(self.score.conductorcomments)
             self.conductorcomment_output.setReadOnly(True)
-            self.detaillayout.addWidget(self.conductorcomment_output, 1, 1)
-            self.detaillayout.addWidget(QLabel("Transpozycja:"), 2, 0)
+            self.detaillayout.addWidget(self.conductorcomment_output, 2, 1)
+            self.detaillayout.addWidget(QLabel("Transpozycja:"), 3, 0)
             self.transposition_output = QLCDNumber()
             self.transposition_output.display(self.score.transposition)
-            self.detaillayout.addWidget(self.transposition_output, 2, 1)
+            self.detaillayout.addWidget(self.transposition_output, 3, 1)
             self.availablelabel = QLineEdit()
             self.availablelabel.setReadOnly(True)
-            self.detaillayout.addWidget(self.availablelabel, 3, 0, 1, 2)
-            row=4
+            self.detaillayout.addWidget(self.availablelabel, 4, 0, 1, 2)
+            row=5
 
 
         self.detaillayout.addWidget(QLabel("autor:"), row, 0)
@@ -175,10 +195,9 @@ class SongListWidget(QWidget):
         row+=1
         self.detaillayout.addWidget(QLabel("opis:"), row, 0)
         self.descline = QLineEdit(self.song.description)
-        self.descline.setMinimumHeight(60)
         self.descline.setReadOnly(True)
         self.detaillayout.addWidget(self.descline, row, 1, 2, 1)
-        row+=1
+        row+=2
         self.notes_label = QLineEdit()
         self.notes_label.setReadOnly(True)
         self.detaillayout.addWidget(self.notes_label, row, 0, 1, 2)
@@ -208,6 +227,7 @@ class SongListWidget(QWidget):
         layout = QHBoxLayout()
         helplayout = QVBoxLayout()
         helplayout.addWidget(QLabel("Lista pieśni chóru " + choir.name))
+        helplayout.addLayout(searchlayout)
         helplayout.addWidget(self.songlist)
         if isinstance(self.user,Conductor):
             self.addnewsongbutton=QPushButton("Dodaj nową pieść")
@@ -218,9 +238,37 @@ class SongListWidget(QWidget):
         self.setLayout(layout)
         
         self.songlist.setCurrentRow(0)
+    
+    def search(self):
+        name=self.nameinput.text().strip()
+        tag=self.taginput.currentText()
+        results=[]
+        if tag!="--dowolny--":
+            results=self.mainwindow.choir.tagsdict[tag]
+        else:
+            if self.isScore:
+                results=self.mainwindow.choir.getScoresForSinger(self.user)
+            else:
+                results=self.mainwindow.choir.songs
+        
+        finalresults=[]
+        for song in results:
+            songname=song.name if isinstance(song,Song) else song.song.name
+            if songname.startswith(name):
+               finalresults.append(song)
+        
+        if len(finalresults)==0:
+            QMessageBox.warning(self,"Błąd","Żadna pieśń nie pasuje o szukanych kryteriów")
+            return
+        newsonglist=SongListWidget(self.mainwindow,finalresults)
+        newsonglist.nameinput.setText(name)
+        newsonglist.taginput.setCurrentText(tag)
+        self.mainwindow.setCentralWidget(newsonglist)
+
 
     def addnewsong(self):
-        self.mainwindow.setCentralWidget(AddSongWidget(self.mainwindow))
+        self.addwid=AddSongWidget(self.mainwindow)
+        self.mainwindow.setCentralWidget(self.addwid)
 
     def editsong(self):
         song = self.songlist.currentItem().data(1)
@@ -231,7 +279,9 @@ class SongListWidget(QWidget):
             self.mainwindow.choir.scores.remove(self.songlist.currentItem().data(1))    
         else:
             self.song.deletefiles()
+            self.song.setTags([])
             self.mainwindow.choir.songs.remove(self.song)
+            
         self.songlist.takeItem(self.songlist.currentRow())
         self.songlist.setCurrentRow(0)        
 
@@ -239,6 +289,10 @@ class SongListWidget(QWidget):
         self.namelabel.setText(self.song.name)
         self.authorline.setText(self.song.author)
         self.descline.setText(self.song.description)
+        
+        self.taglist.clear()
+        for tag in self.song.tags:
+            self.taglist.addItem(QListWidgetItem(tag))
 
         if self.isScore:
             self.conductorcomment_output.setText(self.score.conductorcomments)
@@ -335,7 +389,6 @@ class AddSongWidget(QWidget):
         self.setWindowTitle("Dodaj utwór")
         self.setGeometry(100, 100, 400, 300)
         
-        layout = QVBoxLayout()
         
         self.name_label = QLabel("Nazwa utworu:")
         self.name_input = QLineEdit()
@@ -345,6 +398,22 @@ class AddSongWidget(QWidget):
         
         self.description_label = QLabel("Opis:")
         self.description_input = QTextEdit()
+
+        self.tagslist=QListWidget()
+        self.pick_tag=QComboBox()
+        self.pick_tag.addItems(list(self.choir.tagsdict))
+        self.pick_tag.setEditable(True)
+        self.add_tag_button=QPushButton("Dodaj tag")
+        self.add_tag_button.clicked.connect(self.add_tag)
+        self.remove_tag_button=QPushButton("Usuń wybrany tag")
+        self.remove_tag_button.clicked.connect(self.remove_tag)
+
+        taglayout=QGridLayout()
+        taglayout.addWidget(QLabel("Lista tagów"),0,0,1,2)
+        taglayout.addWidget(self.tagslist,1,0,2,2)
+        taglayout.addWidget(self.pick_tag,3,0)
+        taglayout.addWidget(self.add_tag_button,3,1)
+        taglayout.addWidget(self.remove_tag_button,4,0,1,2)
              
         self.add_notes_button = QPushButton("Dodaj nuty")
         self.add_notes_button.clicked.connect(self.open_add_notes_dialog)
@@ -364,32 +433,51 @@ class AddSongWidget(QWidget):
         self.startingnotes_label = QLabel("Dźwieki poszątkowe: (np. A4 F#4 Bb3 F2)")
         self.startingnotes_input = QLineEdit()
         
-        self.add_song_button = QPushButton("Zatwierdź wszystko i dodaj piosenkę")
+        self.add_song_button = QPushButton("Zatwierdź wszystko i zapisz piosenkę")
         self.add_song_button.clicked.connect(self.add_song)
         
-        layout.addWidget(self.name_label)
-        layout.addWidget(self.name_input)
-        layout.addWidget(self.author_label)
-        layout.addWidget(self.author_input)
-        layout.addWidget(self.description_label)
-        layout.addWidget(self.description_input)
-        layout.addWidget(QLabel("Lista nut: "))
-        layout.addWidget(self.notes_list)
-        layout.addWidget(self.add_notes_button)
-        layout.addWidget(self.remove_notes_button)
-        layout.addWidget(QLabel("Lista nagrań"))
-        layout.addWidget(self.recordings_list)
-        layout.addWidget(self.add_recording_button)
-        layout.addWidget(self.remove_recording_button)
-        layout.addWidget(self.startingnotes_label)
-        layout.addWidget(self.startingnotes_input)
-        layout.addWidget(self.add_song_button)
+        mainlayout=QHBoxLayout()
+        infolayout=QVBoxLayout()
+        resourcelayout=QVBoxLayout()
+
+        infolayout.addWidget(self.name_label)
+        infolayout.addWidget(self.name_input)
+        infolayout.addWidget(self.author_label)
+        infolayout.addWidget(self.author_input)
+        infolayout.addWidget(self.description_label)
+        infolayout.addWidget(self.description_input)
+        infolayout.addLayout(taglayout)
+        resourcelayout.addWidget(QLabel("Lista nut: "))
+        resourcelayout.addWidget(self.notes_list)
+        resourcelayout.addWidget(self.add_notes_button)
+        resourcelayout.addWidget(self.remove_notes_button)
+        resourcelayout.addWidget(QLabel("Lista nagrań"))
+        resourcelayout.addWidget(self.recordings_list)
+        resourcelayout.addWidget(self.add_recording_button)
+        resourcelayout.addWidget(self.remove_recording_button)
+        resourcelayout.addWidget(self.startingnotes_label)
+        resourcelayout.addWidget(self.startingnotes_input)
+        resourcelayout.addWidget(self.add_song_button)
         
-        self.setLayout(layout)
-        
+        mainlayout.addLayout(infolayout)
+        mainlayout.addSpacing(40)
+        mainlayout.addLayout(resourcelayout)
         self.recordings = {}
         self.notes={}
+        self.tags=[]
+        
+        self.setLayout(mainlayout)
     
+    def add_tag(self):
+        tag=self.pick_tag.currentText().strip()
+        self.tagslist.addItem(QListWidgetItem(tag))
+        self.tags.append(tag)
+    
+    def remove_tag(self):
+        self.tags.remove(self.tagslist.currentItem().text())
+        self.tagslist.takeItem(self.tagslist.currentRow())
+        
+
     def open_add_recording_dialog(self):
         dialog = AddresourceDialog("Dodawanie nagrania","Nazwa nagranie: ",False)
         if dialog.exec_():
@@ -432,139 +520,10 @@ class AddSongWidget(QWidget):
         if name in self.mainwindow.choir.songs:
             name=None
         if name:
-            self.choir.addSong(name, author, description, self.notes, self.recordings,startnotes)
+            self.choir.addSong(name, author, description, self.notes, self.recordings,startnotes,self.tags)
             self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow,self.mainwindow.choir.songs))
         else:
             QMessageBox.warning(self, "Błąd", "Piosenka musi mieć nazwę")
-
-# class EditSongWidget(QWidget):
-#     def __init__(self, mainwindow: MainWindow, song: Song):
-#         super().__init__()
-#         self.mainwindow = mainwindow
-#         self.choir = mainwindow.choir
-#         self.user = self.mainwindow.user
-#         self.song = song
-
-#         self.setWindowTitle("Edytuj Piosenkę")
-#         self.setGeometry(100, 100, 400, 300)
-
-#         layout = QVBoxLayout()
-
-#         self.name_label = QLabel("Nazwa piosenki:")
-#         self.name_input = QLineEdit(self.song.name)
-
-#         self.author_label = QLabel("Autor:")
-#         self.author_input = QLineEdit(self.song.author)
-
-#         self.description_label = QLabel("Opis:")
-#         self.description_input = QTextEdit(self.song.description)
-
-#         self.add_notes_button = QPushButton("Dodaj nuty")
-#         self.add_notes_button.clicked.connect(self.open_add_notes_dialog)
-
-#         self.notes_list = QListWidget()
-#         for note in self.song.notes.keys():
-#             self.notes_list.addItem(note)
-
-#         self.remove_notes_button = QPushButton("Usuń wybrane nuty")
-#         self.remove_notes_button.clicked.connect(self.remove_selected_notes)
-
-#         self.add_recording_button = QPushButton("Dodaj nagranie")
-#         self.add_recording_button.clicked.connect(self.open_add_recording_dialog)
-
-#         self.recordings_list = QListWidget()
-#         for recording in self.song.recordings.keys():
-#             self.recordings_list.addItem(recording)
-
-#         self.remove_recording_button = QPushButton("Usuń wybrane nagranie")
-#         self.remove_recording_button.clicked.connect(self.remove_selected_recording)
-
-#         self.startingnotes_label = QLabel("Dźwięki początkowe: (np. A4 F#4 Bb3 F2)")
-#         self.startingnotes_input = QLineEdit(self.song.startnotes)
-
-#         self.save_button = QPushButton("Zapisz zmiany")
-#         self.save_button.clicked.connect(self.save_song)
-
-#         layout.addWidget(self.name_label)
-#         layout.addWidget(self.name_input)
-#         layout.addWidget(self.author_label)
-#         layout.addWidget(self.author_input)
-#         layout.addWidget(self.description_label)
-#         layout.addWidget(self.description_input)
-        
-#         notes_layout = QVBoxLayout()
-#         notes_layout.addWidget(QLabel("Lista nut:"))
-#         notes_layout.addWidget(self.notes_list)
-#         notes_layout.addWidget(self.add_notes_button)
-#         notes_layout.addWidget(self.remove_notes_button)
-        
-#         recordings_layout = QVBoxLayout()
-#         recordings_layout.addWidget(QLabel("Lista nagrań:"))
-#         recordings_layout.addWidget(self.recordings_list)
-#         recordings_layout.addWidget(self.add_recording_button)
-#         recordings_layout.addWidget(self.remove_recording_button)
-        
-#         layout.addLayout(notes_layout)
-#         layout.addLayout(recordings_layout)
-#         layout.addWidget(self.startingnotes_label)
-#         layout.addWidget(self.startingnotes_input)
-#         layout.addWidget(self.save_button)
-
-#         self.setLayout(layout)
-
-#         self.recordings = self.song.recordings.copy()
-#         self.notes = self.song.notes.copy()
-
-#     def open_add_recording_dialog(self):
-#         dialog = AddresourceDialog("Dodawanie nagrania", "Nazwa nagrania: ")
-#         if dialog.exec_():
-#             name, url = dialog.resource
-#             self.recordings[name] = url
-#             self.recordings_list.addItem(name)
-
-#     def open_add_notes_dialog(self):
-#         dialog = AddresourceDialog("Dodawanie nut", "Nazwa pliku z nutami: ")
-#         if dialog.exec_():
-#             name, url = dialog.resource
-#             self.notes[name] = url
-#             self.notes_list.addItem(name)
-
-#     def remove_selected_notes(self):
-#         selected_items = self.notes_list.selectedItems()
-#         if not selected_items:
-#             return
-#         for item in selected_items:
-#             name = item.text()
-#             del self.notes[name]
-#             self.notes_list.takeItem(self.notes_list.row(item))
-
-#     def remove_selected_recording(self):
-#         selected_items = self.recordings_list.selectedItems()
-#         if not selected_items:
-#             return
-#         for item in selected_items:
-#             name = item.text()
-#             del self.recordings[name]
-#             self.recordings_list.takeItem(self.recordings_list.row(item))
-
-#     def save_song(self):
-#         name = self.name_input.text().strip()
-#         author = self.author_input.text().strip()
-#         description = self.description_input.toPlainText().strip()
-#         startnotes = self.startingnotes_input.text().strip()
-
-#         if not name:
-#             QMessageBox.warning(self, "Błąd", "Piosenka musi mieć nazwę")
-#             return
-
-#         self.song.name = name
-#         self.song.author = author
-#         self.song.description = description
-#         self.song.notes = self.notes
-#         self.song.recordings = self.recordings
-#         self.song.startsound = startnotes
-
-#         self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow, self.mainwindow.choir.songs))
 
 class EditSongWidget(AddSongWidget):
     def __init__(self, mainwindow: MainWindow,song:Song):
@@ -574,11 +533,16 @@ class EditSongWidget(AddSongWidget):
             self.notes_list.addItem(note)
         for recording in self.song.recordings.keys():
             self.recordings_list.addItem(recording)
+        for tag in self.song.tags:
+            self.tagslist.addItem(tag)
         
         self.name_input.setText(self.song.name)
         self.author_input.setText(self.song.author)
         self.description_input.setText(self.song.description)
         self.startingnotes_input.setText(self.song.startnotes)
+        self.notes=self.song.notes
+        self.recordings=self.song.recordings
+        self.tags=self.song.tags
     
     def add_song(self):
         name = self.name_input.text().strip()
@@ -595,7 +559,8 @@ class EditSongWidget(AddSongWidget):
         self.song.description = description
         self.song.notes = self.notes
         self.song.recordings = self.recordings
-        self.song.startsound = startnotes
+        self.song.startnotes = startnotes
+        self.song.setTags(self.tags)
         
         self.song.chceckAndDownloadFiles()
 

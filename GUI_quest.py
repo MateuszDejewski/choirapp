@@ -41,12 +41,18 @@ class QuestionnaireWidget(QWidget):
         if self.questionnaire.multipleChoice:
             for answer in self.questionnaire.possibleAnswers:
                 checkbox = QCheckBox(answer)
+                if user in questionnaire.answers[answer]:
+                    checkbox.setChecked(True)
                 self.answer_widgets.append(checkbox)
                 layout.addWidget(checkbox)
         else:
             self.answer_group = QVBoxLayout()
             for answer in self.questionnaire.possibleAnswers:
                 radiobutton = QRadioButton(answer)
+                if user in questionnaire.answers[answer]:
+                    radiobutton.setAutoExclusive(False)
+                    radiobutton.setChecked(True)
+                    radiobutton.setAutoExclusive(True)
                 self.answer_widgets.append(radiobutton)
                 self.answer_group.addWidget(radiobutton)
             layout.addLayout(self.answer_group)
@@ -57,7 +63,7 @@ class QuestionnaireWidget(QWidget):
             layout.addWidget(self.new_answer_input)
 
         # Submit button
-        self.submit_button = QPushButton("Submit Answer")
+        self.submit_button = QPushButton("Dodaj opowiedź")
         self.submit_button.clicked.connect(self.submit_answer)
         layout.addWidget(self.submit_button)
 
@@ -82,7 +88,10 @@ class QuestionnaireWidget(QWidget):
             self.questionnaire.addPossibleAnswer(new_answer)
 
         self.questionnaire.addUserAnswer(self.user, user_answer)
-        self.user.questionnairesToAnswer.remove(self.questionnaire)
+        try:
+            self.user.questionnairesToAnswer.remove(self.questionnaire)
+        except:
+            pass
         self.user.answerdquestionnaires.append(self.questionnaire)
         for widget in self.answer_widgets:
             if self.questionnaire.multipleChoice:
@@ -99,14 +108,19 @@ class QuestionnaireManagementWidget(QWidget):
         self.user = mainwindow.user
         self.questionnaires = mainwindow.choir.qusetionnaires
 
-        self.setWindowTitle("Questionnaire Management")
+        self.setWindowTitle("Zarządzanie ankietami")
 
         layout = QVBoxLayout()
 
         # User's questionnaires
         if isinstance(self.user,Singer):
-            self.user_questionnaires_label = QLabel(f"{self.user.name}'s Questionnaires")
+            self.opened_questionnaire=None
+            self.user_questionnaires_label = QLabel(f"Ankiety użytkownika {self.user.name}")
             layout.addWidget(self.user_questionnaires_label)
+
+            self.refreshbutton=QPushButton("Odśwież")
+            self.refreshbutton.clicked.connect(self.populate_user_questionnaires)
+            layout.addWidget(self.refreshbutton)
 
             self.answered_list = QListWidget()
             self.unanswered_list = QListWidget()
@@ -114,31 +128,31 @@ class QuestionnaireManagementWidget(QWidget):
             self.populate_user_questionnaires()
 
             user_questionnaire_layout = QVBoxLayout()
-            user_questionnaire_layout.addWidget(QLabel("Answered"))
+            user_questionnaire_layout.addWidget(QLabel("Wypełnione"))
             user_questionnaire_layout.addWidget(self.answered_list)
-            user_questionnaire_layout.addWidget(QLabel("Unanswered"))
+            user_questionnaire_layout.addWidget(QLabel("Niewypełnione"))
             user_questionnaire_layout.addWidget(self.unanswered_list)
             self.answered_list.itemDoubleClicked.connect(self.open_questionnaire)
             self.unanswered_list.itemDoubleClicked.connect(self.open_questionnaire)
-            self.opened_questionnaire=None
             layout.addLayout(user_questionnaire_layout)
 
         # Conductor's questionnaire management
         if isinstance(self.user, Conductor):
-            self.conductor_questionnaires_label = QLabel("Conductor's Questionnaires")
+            self.opened_results=None
+            self.conductor_questionnaires_label = QLabel("Wszystkie ankiety")
             layout.addWidget(self.conductor_questionnaires_label)
 
             self.conductor_questionnaire_list = QListWidget()
             self.populate_conductor_questionnaires()
             layout.addWidget(self.conductor_questionnaire_list)
             self.conductor_questionnaire_list.itemDoubleClicked.connect(self.show_results)
-            self.opened_results=None
 
-            self.add_questionnaire_button = QPushButton("Add Questionnaire")
+
+            self.add_questionnaire_button = QPushButton("Dodaj ankietę")
             self.add_questionnaire_button.clicked.connect(self.add_questionnaire)
             layout.addWidget(self.add_questionnaire_button)
 
-            self.delete_questionnaire_button = QPushButton("Delete Questionnaire")
+            self.delete_questionnaire_button = QPushButton("Usuń ankietę")
             self.delete_questionnaire_button.clicked.connect(self.delete_questionnaire)
             layout.addWidget(self.delete_questionnaire_button)
 
@@ -155,6 +169,10 @@ class QuestionnaireManagementWidget(QWidget):
             item = QListWidgetItem(q.question)
             item.setData(Qt.UserRole, q)
             self.unanswered_list.addItem(item)
+        
+        if self.opened_questionnaire:
+            self.layout().removeWidget(self.opened_questionnaire)
+            self.opened_questionnaire.hide()
 
     def populate_conductor_questionnaires(self):
         if isinstance(self.user, Conductor):
@@ -191,7 +209,6 @@ class QuestionnaireManagementWidget(QWidget):
             self.opened_questionnaire.hide()
         self.opened_questionnaire=QuestionnaireWidget(questionnaire, self.user)
         self.layout().addWidget(self.opened_questionnaire)
-        self.populate_user_questionnaires()
     
 
     def show_results(self, item):

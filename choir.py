@@ -5,7 +5,7 @@ from performance import Performance
 from questionnaire import Questionnaire
 
 class Choir:
-    def __init__(self,name:str,conductors:list[Conductor]=[],singers:list[Singer]=[],songs:list[Song]=[],scores:list[Score]=[],performances:list[Performance]=[],questionnaires:list[Questionnaire]=[]) -> None:
+    def __init__(self,name:str,conductors:list[Conductor]=[],singers:list[Singer]=[],songs:list[Song]=[],scores:list[Score]=[],performances:list[Performance]=[],questionnaires:list[Questionnaire]=[],tagsdict:dict[str:list[Song]]=dict()) -> None:
         self.name=name
         self.conductors=conductors
         self.singers=singers
@@ -13,9 +13,10 @@ class Choir:
         self.scores=scores
         self.performances=performances
         self.qusetionnaires=questionnaires
+        self.tagsdict=tagsdict
 
-    def addSong(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str=""):
-        song=Song(name,author,self,description,notes,recordings,startnotes)
+    def addSong(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str="",tags:list[str]=[]):
+        song=Song(name,author,self,description,notes,recordings,startnotes,tags)
         song.chceckAndDownloadFiles()
         self.songs.append(song)
     
@@ -41,7 +42,7 @@ class Choir:
         self.qusetionnaires.remove(questionnaire)
         for singer in self.singers:
             singer.answerdquestionnaires.remove(questionnaire)
-            singer.unanswerdquestion.remove(questionnaire)
+            singer.questionnairesToAnswer.remove(questionnaire)
     
     
         

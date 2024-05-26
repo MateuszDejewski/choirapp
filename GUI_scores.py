@@ -96,7 +96,7 @@ class AddScoreWidget(QWidget):
             self.mainwindow.setCentralWidget(ScorelistWidget(self.mainwindow,self.mainwindow.choir.getScoresForSinger(self.mainwindow.user)))
         else:
             self.hide()
-            
+
 class EditScoreWidget(QWidget):
     def __init__(self,mainwidnow:Mainwindow,score:Score):
         super().__init__()

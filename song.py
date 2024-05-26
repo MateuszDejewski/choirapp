@@ -7,7 +7,7 @@ import pytube as pt
 import requests
 import simpleaudio as sa
 from music21 import note
-import pydub
+from PIL import Image
 from pydub import AudioSegment
 from pydub.generators import Sine
 import pygame
@@ -17,11 +17,13 @@ pygame.mixer.init()
 
 
 class Song:
-    def __init__(self,name:str,author:str,choir,description:str="",notes=None,recordings=None,startnotes:str="") -> None:
+    def __init__(self,name:str,author:str,choir:'Choir',description:str="",notes=None,recordings=None,startnotes:str="",tags:list[str]=[]) -> None:
         self.name=name
         self.path = os.path.join("songs",choir.name,name)
+        self.choir=choir
         self.author=author
         self.description=description
+    
         if notes:
             self.notes=notes
         else:
@@ -36,6 +38,9 @@ class Song:
         else:
             self.startsound=None
         
+        self.tags=[]
+        self.setTags(tags)
+        
         olddir=os.getcwd()
         if not Path("songs").exists():
             os.mkdir("songs")
@@ -49,6 +54,20 @@ class Song:
         os.chdir(olddir)
         self.playobj=None
 
+    def setTags(self,tags:list[str])->None:
+        for tag in self.tags:
+            self.choir.tagsdict[tag].remove(self)
+            if self.choir.tagsdict[tag]==[]:
+                del self.choir.tagsdict[tag]
+
+        self.tags=tags
+        for tag in self.tags:
+            if tag in self.choir.tagsdict:
+                self.choir.tagsdict[tag].append(self)
+            else:
+                self.choir.tagsdict[tag]=[self]
+
+
     def addFromPath(self,name:str,path:str)->str:
         oldname,ext= os.path.splitext(path)
         oldpath=os.getcwd()
@@ -57,15 +76,18 @@ class Song:
         os.chdir(oldpath)
         return ext
     
-    def addFromGoogleDrive(self,name:str,url:str,ext:str)->None:
-        file_id = url.split('/d/')[1].split('/view')[0]
-        direct_link = f"https://drive.google.com/uc?export=download&id={file_id}"
-        data=requests.get(direct_link)
+    def addFromInternet(self,name:str,url:str,ext:str)->None:
+        data=requests.get(url)
         oldpath=os.getcwd()
         os.chdir(self.path)
         with open(name+ext, 'wb')as file:
             file.write(data.content)
         os.chdir(oldpath)
+
+    def addFromGoogleDrive(self,name:str,url:str,ext:str)->None:
+        file_id = url.split('/d/')[1].split('/view')[0]
+        direct_link = f"https://drive.google.com/uc?export=download&id={file_id}"
+        self.addFromInternet(name,direct_link,ext)
 
     def addRecordingFromYoutube(self,file:str,url:str)->None:
             olddir=os.getcwd()
@@ -79,15 +101,37 @@ class Song:
             os.remove("audio.mp4")
             os.chdir(olddir)
             return ".mp3"
-            
+
+    def convertToPDF(jpg_path, pdf_path):
+        image = Image.open(jpg_path)
+        if image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
+        image.save(pdf_path, "PDF", resolution=100.0)  
 
     def addnotes(self,resource:str,name:str="",ext:str=""):
         if name=="":
             name=self.name+str(len(self.notes)+1)
         if resource.startswith("https://drive.google.com"):
             self.addFromGoogleDrive(name=name,url=resource,ext=ext)
+        elif resource.startswith("www") or resource.startswith("http"):
+            self.addFromInternet(name,resource,ext)
         else:
             ext = self.addFromPath(name,resource)
+        if ext!='.pdf':
+            try:
+                olddir=os.getcwd()
+                os.chdir(self.path)
+                oldname=name+ext
+                Song.convertToPDF(oldname,name+'.pdf')
+                if oldname in self.notes:
+                    del self.notes[oldname]
+                    os.remove(oldname)
+                ext='.pdf'
+            except:
+                pass
+            finally:
+                os.chdir(olddir)
+                
         self.notes[(name+ext)]=resource
     
     def convertToMP3(inputpath:str,outputpath:str,ext:str):
@@ -103,17 +147,25 @@ class Song:
             self.addFromGoogleDrive(name=name,url=resource,ext=ext)
         elif resource.startswith("https://www.youtube.com") or resource.startswith("https://youtu.be"):
             ext=self.addRecordingFromYoutube(name+".mp3",resource)
+        elif resource.startswith("www") or resource.startswith("http"):
+            self.addFromInternet(name,resource,ext)
         else:
             ext = self.addFromPath(name+ext,resource)
         if ext!='.mp3' and ext!='.wav': 
             try:
                 olddir=os.getcwd()
                 os.chdir(self.path)
-                Song.convertToMP3(name+ext,name+'.mp3',ext[1:])
+                oldname=name+ext
+                Song.convertToMP3(oldname,name+'.mp3',ext[1:])
+                if oldname in self.recordings:
+                    del self.recordings[oldname]
+                    os.remove(oldname)
                 ext='.mp3'
+            except:
+                pass
             finally:
-                os.chdir=olddir
-                self.recordings[(name+ext)]=resource
+                os.chdir(olddir)
+        self.recordings[(name+ext)]=resource
 
     def chceckAndDownloadFiles(self)->None:
         noteitems=list(self.notes.items())

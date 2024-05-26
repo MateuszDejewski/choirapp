@@ -22,10 +22,10 @@ if __name__=='__main__':
     # choir.addSong("Deus miserere mei",
     #               notes={"Deus miserere mei.pdf":"https://drive.google.com/file/d/1h6V1yRi1uSyMP1YHK5n8fcsl5mlljqq0/view?usp=drive_link"},
     #               recordings={
-    #                   "Sopran.acc":"https://drive.google.com/file/d/1g9FEs0OxgxZZUwo5x0sk23FiwIyXnDZ0/view?usp=drive_link",
-    #                   "Alt.acc":"https://drive.google.com/file/d/1BzCMb9iEYrNv10ERbw9X02PVvHjnD5RW/view?usp=sharing",
-    #                   "Tenor.acc":"https://drive.google.com/file/d/1Cs7y40SvwXcz82mxaBpp8CPBK847IHEC/view?usp=drive_link",
-    #                   "Bas.acc":"https://drive.google.com/file/d/1thVVlh2VCG6eebwNyCUdWFJSNVYwWTfX/view?usp=drive_link"
+    #                   "Sopran.aac":"https://drive.google.com/file/d/1g9FEs0OxgxZZUwo5x0sk23FiwIyXnDZ0/view?usp=drive_link",
+    #                   "Alt.aac":"https://drive.google.com/file/d/1BzCMb9iEYrNv10ERbw9X02PVvHjnD5RW/view?usp=sharing",
+    #                   "Tenor.aac":"https://drive.google.com/file/d/1Cs7y40SvwXcz82mxaBpp8CPBK847IHEC/view?usp=drive_link",
+    #                   "Bas.aac":"https://drive.google.com/file/d/1thVVlh2VCG6eebwNyCUdWFJSNVYwWTfX/view?usp=drive_link"
     #               })   
     # choir.addSong("Gaude Mater Polonia",
     #               notes={"Gaude Mater Polonia.pdf":"https://drive.google.com/file/d/1xy2Z2af-N1hMCYRuzwvIEPWzvIuwm-xO/view?usp=drive_link"},
@@ -43,6 +43,13 @@ if __name__=='__main__':
 
     # app.choirs[0].singers.append(Singer("Zuzia","zuzu","zuzu","sopran"))
     # app.choirs[0].conductors.append(Conductor("Mateusz","matdej3459","dejefa"))
+    
+    # app=Choirapp()
+    # app.read_choirs()
+    # for song in app.choirs[0].songs:
+    #     song.tags=[]
+    # app.choirs[0].tagsdict.clear()
+    # app.choirs[0].songs.pop()
     # app.save_choirs()
 
 
