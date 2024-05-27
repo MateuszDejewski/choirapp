@@ -47,4 +47,8 @@ class Score:
 
     def shareToSinger(self,singer:Singer)->None:
         self.forUsers.append(singer)
-                
+    
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value,Score):
+            return self.song.__eq__(value.song)
+        return False

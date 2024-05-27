@@ -214,12 +214,16 @@ class Song:
     def playStartNotes(self,filename:str="startsound.wav")->None:
         if self.startsound:
             filepath=Path(self.path).joinpath(filename)
-            if filepath.exists():
-                os.remove(str(filepath))
-            oldpath=os.getcwd()
-            os.chdir(self.path)
-            self.startsound.export(filename,format='wav')
-            os.chdir(oldpath)
+            try:
+                if filepath.exists():
+                    os.remove(str(filepath))
+            
+                oldpath=os.getcwd()
+                os.chdir(self.path)
+                self.startsound.export(filename,format='wav')
+                os.chdir(oldpath)
+            except:
+                pass
             try:
                 pygame.mixer.music.load(filepath)
                 pygame.mixer.music.play()

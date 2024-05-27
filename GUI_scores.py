@@ -85,11 +85,11 @@ class AddScoreWidget(QWidget):
 
         if selected_song in currentscores:
             reply = QMessageBox.question(self, 'Uwaga',
-                                         'Obecna aranżacja '+selected_song.song.name+" zostanie nadpisana\nCzy chcesz kontynuować?",
+                                         'Obecna aranżacja '+selected_song.name+" zostanie nadpisana\nCzy chcesz kontynuować?",
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.No:
                 return  
-            self.mainwindow.choir.deleteScore(selected_song)
+            self.mainwindow.choir.deleteScore(Score(selected_song))
 
         comment = self.comment.text()
         transposition = self.number_input.value()
