@@ -26,6 +26,7 @@ class AddScoreWidget(QWidget):
             item.setData(1, song)
             self.songlist.addItem(item)
         self.songlist.setSelectionMode(QListWidget.SingleSelection)
+        self.songlist.sortItems()
 
         layout.addWidget(self.songlist,1,0,3,2)
         layout.addWidget(QLabel("Komentarz dotyczący wykonania:"),4,0,1,2)
@@ -149,6 +150,7 @@ class EditScoreWidget(QWidget):
             if singer in self.score.forUsers:
                 item.setSelected(True)
         self.singerlist.setSelectionMode(QListWidget.MultiSelection)
+        self.singerlist.sortItems()
         layout.addWidget(self.singerlist,8,0,3,2)
         self.available_checkbox.setChecked(not self.score.avaliable)
 

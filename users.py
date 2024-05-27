@@ -1,4 +1,3 @@
-
 from questionnaire import Questionnaire
 import keyring
 
@@ -10,14 +9,14 @@ class User(metaclass=abc.ABCMeta):
         self.login=login
         keyring.set_password("app",login,password)
     
-    def changelogin(self,newlogin:str):
+    def changelogin(self,newlogin:str)->None:
         oldlogin=self.login
         oldpassword=keyring.get_password("app",self.login)
         keyring.delete_password("app",oldlogin)
         keyring.set_password("app",newlogin,oldpassword)
         self.login=newlogin
 
-    def changepassword(self,newpassword:str):
+    def changepassword(self,newpassword:str)->None:
         keyring.set_password("app",self.login,newpassword)
 
 class Singer(User):
@@ -29,12 +28,12 @@ class Singer(User):
         self.knownSongs=dict()
         self.unanswerdquestion=False
 
-    def addQuestionnaire(self,quest:Questionnaire):
+    def addQuestionnaire(self,quest:Questionnaire)->None:
         self.questionnairesToAnswer.append(quest)
-        self.unanswerdquestion=False
+        self.unanswerdquestion=True
     
-    def answerQuestionniare(self,quest:Questionnaire,answers:list[str]):
-        quest.adduseranswer(self,answers)
+    def answerQuestionniare(self,quest:Questionnaire,answers:list[str])->None:
+        quest.addUserAnswer(self,answers)
         if quest.about and quest.multipleChoice==False:
             self.knownSongs[quest.about.song.name]=answers[0]
     

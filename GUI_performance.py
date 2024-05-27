@@ -45,6 +45,7 @@ class PerformanceWidget(QWidget):
             self.songlist.addItem(item)
 
         self.songlist.itemDoubleClicked.connect(self.openscore)
+        self.songlist.sortItems()
 
         layout.addWidget(QLabel("Lista utworów:"))
         layout.addWidget(self.songlist)
@@ -52,7 +53,7 @@ class PerformanceWidget(QWidget):
         self.singerlist = QListWidget()
         for singer in self.performance.singers: 
             self.singerlist.addItem(QListWidgetItem(singer.name))
-        
+        self.singerlist.sortItems()
         
         layout.addWidget(QLabel("Lista śpiewających"))
         layout.addWidget(self.singerlist)
@@ -284,11 +285,11 @@ class PerformancelistWidget(QWidget):
         self.user=self.mainwindow.user
         if len(performances)==0:
             if isinstance(self.user,Conductor):
-                QMessageBox.warning(self,"Błąd","Nie żadnych ma wystąpień.\nMożesz dodać nowe:)")
+                QMessageBox.warning(self,"Błąd","Nie ma żadnych wystąpień.\nMożesz dodać nowe:)")
                 self.addperformance()
                 return
             else:
-                QMessageBox.warning(self,"Błąd","Nie żadnych ma wystąpień do wyświetenia.")
+                QMessageBox.warning(self,"Błąd","Nie ma żadnych wystąpień do wyświetenia.")
                 return
                    
 

@@ -155,7 +155,7 @@ class Song:
         elif resource.startswith("www") or resource.startswith("http"):
             self.addFromInternet(name,resource,ext)
         else:
-            ext = self.addFromPath(name+ext,resource)
+            ext = self.addFromPath(name,resource)
         if ext!='.mp3' and ext!='.wav': 
             try:
                 olddir=os.getcwd()
@@ -272,7 +272,10 @@ class Song:
 
     def deletefiles(self)->None:
         if Path(self.path).exists():
-            sh.rmtree(self.path)
+            try:
+                sh.rmtree(self.path)
+            except Exception:
+                pass
 
     def __eq__(self,other:object)->bool:
         if isinstance(other,Song):

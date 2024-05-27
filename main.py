@@ -46,9 +46,6 @@ if __name__=='__main__':
     
     # app=Choirapp()
     # app.read_choirs()
-    # for singer in app.choirs[0].singers:
-    #     singer.questionnairesToAnswer=[]
-    #     singer.answerdquestionnaires=[]
     # app.save_choirs()
 
 

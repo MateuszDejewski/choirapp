@@ -190,11 +190,11 @@ class SongListWidget(QWidget):
         self.listofsongs=listofsongs
         if len(listofsongs)==0:
             if isinstance(self.user,Conductor):
-                QMessageBox.warning(self,"Błąd","Nie żadnych ma pieśni.\nMożesz dodać nowe:)")
+                QMessageBox.warning(self,"Błąd","Nie ma żadnych  pieśni.\nMożesz dodać nowe:)")
                 self.addnewsong()
                 return
             else:
-                QMessageBox.warning(self,"Błąd","Nie żadnych ma pieśni do wyświetenia.")
+                QMessageBox.warning(self,"Błąd","Nie ma żadnych pieśni do wyświetenia.")
                 return
             
         self.isScore=isinstance(listofsongs[0],Score)
@@ -330,7 +330,7 @@ class SongListWidget(QWidget):
                finalresults.append(song)
         
         if len(finalresults)==0:
-            QMessageBox.warning(self,"Błąd","Żadna pieśń nie pasuje o szukanych kryteriów")
+            QMessageBox.warning(self,"Błąd","Żadna pieśń nie pasuje do szukanych kryteriów")
             return
         if self.isScore:
             from GUI_scores import ScorelistWidget
@@ -363,7 +363,7 @@ class SongListWidget(QWidget):
             
         else:
             reply = QMessageBox.question(self, 'Potwierdzenie usunięcia',
-                                         'Czy na pewno chcesz usunąć utwór '+self.song.name+"?\nZostanie on także usunięty z wszystkich pieśni o nauki i występów",
+                                         'Czy na pewno chcesz usunąć utwór '+self.song.name+"?\nZostanie on także usunięty z wszystkich pieśni do nauki i występów",
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.No:
                 return   
