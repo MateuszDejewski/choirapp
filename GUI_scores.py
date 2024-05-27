@@ -1,17 +1,15 @@
 from __future__ import annotations
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QListWidget,QListWidgetItem,
-    QVBoxLayout, QHBoxLayout, QGridLayout,QFormLayout,
-    QLabel, QLineEdit, QTextEdit, 
-    QPushButton, QCheckBox, QRadioButton,
+    QHBoxLayout, QGridLayout,
+    QLabel, QLineEdit, 
+    QPushButton, QCheckBox,
     QListWidget, QListWidgetItem,
     QSpinBox,QMessageBox
 )
 from score import Score
 from GUI_songs import SongListWidget
-from song import Song
 
 class AddScoreWidget(QWidget):
     def __init__(self,mainwidnow:Mainwindow):
@@ -82,6 +80,17 @@ class AddScoreWidget(QWidget):
             return
         
         selected_song = selected_song_item.data(1)
+
+        currentscores=[score.song for score in self.mainwindow.choir.scores]
+
+        if selected_song in currentscores:
+            reply = QMessageBox.question(self, 'Uwaga',
+                                         'Obecna aranżacja '+selected_song.song.name+" zostanie nadpisana\nCzy chcesz kontynuować?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.No:
+                return  
+            self.mainwindow.choir.deleteScore(selected_song)
+
         comment = self.comment.text()
         transposition = self.number_input.value()
         
@@ -168,6 +177,12 @@ class EditScoreWidget(QWidget):
             return
         
         selected_song = selected_song_item.data(1)
+        currentscores=[score.song for score in self.mainwindow.choir.scores]
+
+        if selected_song in currentscores and self.score.song!=selected_song:
+            QMessageBox.question(self, 'Błąd',"Nie można zmienić pieśni, gdyż istnieje już jej aranżacja")
+            return
+            
         comment = self.comment.text()
         transposition = self.number_input.value()
         avaliable=not self.available_checkbox.isChecked()
@@ -184,7 +199,7 @@ class EditScoreWidget(QWidget):
         self.score.avaliable=avaliable
         if not avaliable:
             self.score.forUsers=selected_singers 
-        self.mainwindow.setCentarlWidget(ScorelistWidget(self.mainwindow,self.mainwindow.choir.getScoresForSinger(self.mainwindow.user)))
+        self.mainwindow.setCentralWidget(ScorelistWidget(self.mainwindow,self.mainwindow.choir.getScoresForSinger(self.mainwindow.user)))
 
 class ScorelistWidget(SongListWidget):
     def __init__(self, mainwindow:MainWindow, listofsongs:list[Score]) -> None:
@@ -197,7 +212,6 @@ class ScorelistWidget(SongListWidget):
     def editsong(self):
         self.editwidget=EditScoreWidget(self.mainwindow,self.songlist.currentItem().data(1))
         self.mainwindow.setCentralWidget(self.editwidget)       
-
 
 
 

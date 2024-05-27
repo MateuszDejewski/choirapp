@@ -1,17 +1,15 @@
-from asyncio import sleep
 import shutil as sh
 from pathlib import Path
 import os
-import subprocess
 import pytube as pt
 import requests
-import simpleaudio as sa
 from music21 import note
 from PIL import Image
 from pydub import AudioSegment
 from pydub.generators import Sine
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
-from moviepy.editor import *
 pygame.mixer.init()
 
 
@@ -32,11 +30,8 @@ class Song:
             self.recordings=recordings
         else:
             self.recordings=dict()
-        self.startnotes=startnotes
-        if startnotes!="":
-            self.startsound=Song.createStartNotes(startnotes)
-        else:
-            self.startsound=None
+
+        self.setStartnotes(startnotes)
         
         self.tags=[]
         self.setTags(tags)
@@ -53,6 +48,16 @@ class Song:
         
         os.chdir(olddir)
         self.playobj=None
+
+    def setStartnotes(self,startnotes:str)->None:
+        self.startnotes=startnotes
+        if startnotes!="":
+            try:
+                self.startsound=Song.createStartNotes(startnotes)
+            except Exception:
+                self.startsound=None
+        else:
+            self.startsound=None
 
     def setTags(self,tags:list[str])->None:
         for tag in self.tags:
@@ -102,13 +107,13 @@ class Song:
             os.chdir(olddir)
             return ".mp3"
 
-    def convertToPDF(jpg_path, pdf_path):
+    def convertToPDF(jpg_path:str, pdf_path:str)->None:
         image = Image.open(jpg_path)
         if image.mode in ("RGBA", "P"):
             image = image.convert("RGB")
         image.save(pdf_path, "PDF", resolution=100.0)  
 
-    def addnotes(self,resource:str,name:str="",ext:str=""):
+    def addnotes(self,resource:str,name:str="",ext:str="")->None:
         if name=="":
             name=self.name+str(len(self.notes)+1)
         if resource.startswith("https://drive.google.com"):
@@ -134,7 +139,7 @@ class Song:
                 
         self.notes[(name+ext)]=resource
     
-    def convertToMP3(inputpath:str,outputpath:str,ext:str):
+    def convertToMP3(inputpath:str,outputpath:str,ext:str)->None:
         try:
             audio=AudioSegment.from_file(inputpath,format=ext)
             audio.export(outputpath,format='mp3')
@@ -142,7 +147,7 @@ class Song:
             raise RuntimeError("Unable to conver file")
 
 
-    def addrecording(self,name:str,resource:str,ext:str=""):
+    def addrecording(self,name:str,resource:str,ext:str="")->None:
         if resource.startswith("https://drive.google.com"):
             self.addFromGoogleDrive(name=name,url=resource,ext=ext)
         elif resource.startswith("https://www.youtube.com") or resource.startswith("https://youtu.be"):
@@ -167,53 +172,63 @@ class Song:
                 os.chdir(olddir)
         self.recordings[(name+ext)]=resource
 
-    def chceckAndDownloadFiles(self)->None:
+    def chceckAndDownloadFiles(self)->bool:
+        succes=True
         noteitems=list(self.notes.items())
         for k,v in noteitems:
             filepath=Path(self.path).joinpath(k)
             if not filepath.exists():
                 n,ext=os.path.splitext(k)
-                self.addnotes(v,n,ext)
-        
+                try:
+                    self.addnotes(v,n,ext)
+                except Exception:
+                    succes=False
+
         recordingitems=list(self.recordings.items())
         for k,v in recordingitems:
             filepath=Path(self.path).joinpath(k)
             if not filepath.exists():
                 n,ext=os.path.splitext(k)
-                self.addrecording(n,v,ext)
-
-    def playrecording(self,name:str):
+                try:
+                    self.addrecording(n,v,ext)
+                except Exception:
+                    succes=True
+        return succes
+    
+    def playrecording(self,name:str)->None:
         
-            if self.recordings[name]:
-                filepath=Path(self.path).joinpath(name)
-                if not filepath.exists():
-                    n,ext=os.path.splitext(name)
-                    self.addrecording(n,self.recordings[name],ext)
-               
+        if self.recordings[name]:
+            filepath=Path(self.path).joinpath(name)
+            if not filepath.exists():
+                n,ext=os.path.splitext(name)
+                self.addrecording(n,self.recordings[name],ext)
+            try:
                 pygame.mixer.music.stop()
                 pygame.mixer.music.load(filepath)
-                
                 pygame.mixer.music.play()
+            except Exception:
+                raise RuntimeError("Unable to play recording")
 
        
     
-    def playStartNotes(self,filename:str="startsound.wav"):
+    def playStartNotes(self,filename:str="startsound.wav")->None:
         if self.startsound:
             filepath=Path(self.path).joinpath(filename)
-            if not filepath.exists():
-                oldpath=os.getcwd()
-                os.chdir(self.path)
-                self.startsound.export(filename,format='wav')
-                os.chdir(oldpath)
-            pygame.mixer.music.load(filepath)
-            pygame.mixer.music.play()
-        
-
-        
+            if filepath.exists():
+                os.remove(str(filepath))
+            oldpath=os.getcwd()
+            os.chdir(self.path)
+            self.startsound.export(filename,format='wav')
+            os.chdir(oldpath)
+            try:
+                pygame.mixer.music.load(filepath)
+                pygame.mixer.music.play()
+            except Exception:
+                raise RuntimeError("Unable to play starting sounds")
         
     def strnotesToRealnotes(startnotes:str)->list[note.Note]:
         """
-        Creates list of notes from string A4 F#4 Bb3 F2
+        Creates list of music21.notes from string A4 F#4 Bb3 F2
         """
         singleNotes=startnotes.split(' ')
         notes=[]
@@ -241,9 +256,21 @@ class Song:
         return audio
 
     def createStartNotes(startnotes:str)->AudioSegment:
-        notes=Song.strnotesToRealnotes(startnotes)
-        return Song.realnotesTosound(notes)  
-    
-    def deletefiles(self):
+        """
+        creating audio segment form given literal notes in str
+        """
+        try:
+            notes=Song.strnotesToRealnotes(startnotes)
+            return Song.realnotesTosound(notes)
+        except Exception:
+            raise RuntimeError("Unable to create starting notes\n Check given input and try again")  
+        
+
+    def deletefiles(self)->None:
         if Path(self.path).exists():
             sh.rmtree(self.path)
+
+    def __eq__(self,other:object)->bool:
+        if isinstance(other,Song):
+            return self.name==other.name
+        return False

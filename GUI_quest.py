@@ -1,29 +1,16 @@
 from __future__ import annotations
-from pathlib import Path
-import sys
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,QMainWindow, QWidget, 
-    QVBoxLayout, QHBoxLayout, QGridLayout,QFormLayout,
+    QWidget, 
+    QVBoxLayout,QFormLayout,
     QLabel, QLineEdit, QTextEdit, 
     QPushButton, QCheckBox, QRadioButton,
     QListWidget, QListWidgetItem,
-    QScrollArea,QSlider,
-    QComboBox,
     QMessageBox,QDialog,
-    QToolBar,QDialogButtonBox
+    QDialogButtonBox
 )
-from PySide6.QtPdf import QPdfDocument
-from PySide6.QtPdfWidgets import QPdfView
-from PySide6.QtGui import QImage,QPixmap,QAction
-from choir import Choir
 from questionnaire import Questionnaire
-from score import Score
 from users import User,Singer,Conductor
-from song import Song
-from app import Choirapp
-from functools import partial
-import keyring
 
 class QuestionnaireWidget(QWidget):
     def __init__(self,questionnaire: Questionnaire,user:User):
@@ -88,11 +75,11 @@ class QuestionnaireWidget(QWidget):
             self.questionnaire.addPossibleAnswer(new_answer)
 
         self.questionnaire.addUserAnswer(self.user, user_answer)
-        try:
+        
+        if self.questionnaire in self.user.questionnairesToAnswer:
             self.user.questionnairesToAnswer.remove(self.questionnaire)
-        except:
-            pass
-        self.user.answerdquestionnaires.append(self.questionnaire)
+        if self.questionnaire not in self.user.answerdquestionnaires:
+            self.user.answerdquestionnaires.append(self.questionnaire)
         for widget in self.answer_widgets:
             if self.questionnaire.multipleChoice:
                 widget.setChecked(False)
@@ -139,13 +126,15 @@ class QuestionnaireManagementWidget(QWidget):
         # Conductor's questionnaire management
         if isinstance(self.user, Conductor):
             self.opened_results=None
-            self.conductor_questionnaires_label = QLabel("Wszystkie ankiety")
+            self.conductor_questionnaires_label = QLabel("Własne ankiety")
             layout.addWidget(self.conductor_questionnaires_label)
 
             self.conductor_questionnaire_list = QListWidget()
+            self.questionnaires_for_songs=QListWidget()
             self.populate_conductor_questionnaires()
             layout.addWidget(self.conductor_questionnaire_list)
             self.conductor_questionnaire_list.itemDoubleClicked.connect(self.show_results)
+            self.questionnaires_for_songs.itemDoubleClicked.connect(self.show_results)
 
 
             self.add_questionnaire_button = QPushButton("Dodaj ankietę")
@@ -156,6 +145,8 @@ class QuestionnaireManagementWidget(QWidget):
             self.delete_questionnaire_button.clicked.connect(self.delete_questionnaire)
             layout.addWidget(self.delete_questionnaire_button)
 
+            layout.addWidget(QLabel("Ankiety dotyczące pieśni"))
+            layout.addWidget(self.questionnaires_for_songs)
         self.setLayout(layout)
 
     def populate_user_questionnaires(self):
@@ -177,10 +168,15 @@ class QuestionnaireManagementWidget(QWidget):
     def populate_conductor_questionnaires(self):
         if isinstance(self.user, Conductor):
             self.conductor_questionnaire_list.clear()
+            self.questionnaires_for_songs.clear()
             for q in self.questionnaires:
                 item = QListWidgetItem(q.question)
                 item.setData(Qt.UserRole, q)
                 self.conductor_questionnaire_list.addItem(item)
+            for score in self.mainwindow.choir.scores:
+                item = QListWidgetItem(score.questionnaire.question)
+                item.setData(Qt.UserRole, score.questionnaire)
+                self.questionnaires_for_songs.addItem(item)
 
     def add_questionnaire(self):
         dialog = AddQuestionnaireDialog()
@@ -199,6 +195,12 @@ class QuestionnaireManagementWidget(QWidget):
         selected_item = self.conductor_questionnaire_list.currentItem()
         if selected_item:
             questionnaire = selected_item.data(Qt.UserRole)
+            reply = QMessageBox.question(self, 'Potwierdzenie usunięcia',
+                                         'Czy na pewno chcesz usunąć ankietę '+questionnaire.question+"?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.No:
+                return
+            
             self.mainwindow.choir.removeQuestionnaire(questionnaire)
             self.populate_conductor_questionnaires()
 
@@ -223,33 +225,34 @@ class AddQuestionnaireDialog(QDialog):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Add Questionnaire")
+        self.setWindowTitle("Dodaj ankietę")
         self.layout = QVBoxLayout()
 
         # Question input
         self.question_input = QLineEdit()
-        self.layout.addWidget(QLabel("Question:"))
+        self.layout.addWidget(QLabel("Pytanie:"))
         self.layout.addWidget(self.question_input)
 
         # Answers input
         self.answers_layout = QVBoxLayout()
         self.answers = []
-        self.add_answer_button = QPushButton("Add Answer")
+        self.add_answer_button = QPushButton("Dodaj odpowiedź")
         self.add_answer_button.clicked.connect(self.add_answer_field)
-        self.layout.addWidget(QLabel("Possible Answers:"))
+        self.layout.addWidget(QLabel("Możliwe odpowiedzi:"))
         self.layout.addLayout(self.answers_layout)
         self.layout.addWidget(self.add_answer_button)
 
         # Adding new answers option
-        self.add_new_answers_checkbox = QCheckBox("Allow Adding New Answers")
+        self.add_new_answers_checkbox = QCheckBox("Dodawanie własnych odpowiedzi")
         self.layout.addWidget(self.add_new_answers_checkbox)
 
         # Multiple choice option
-        self.multiple_choice_checkbox = QCheckBox("Multiple Choice")
+        self.multiple_choice_checkbox = QCheckBox("Wielokrotny wybór")
         self.layout.addWidget(self.multiple_choice_checkbox)
 
         # Dialog buttons
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box.button(QDialogButtonBox.Cancel).setText("Anuluj")
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.layout.addWidget(self.button_box)
@@ -280,15 +283,14 @@ class QuestionnaireResultsWidget(QWidget):
         for answer, count in results.items():
             layout.addWidget(QLabel(f"{answer}: {count}"))
 
+        userlayout=QFormLayout()
         for k,v in questionnaire.answers.items():
-            userlayout=QHBoxLayout()
-            userlayout.addWidget(QLabel(k))
-            answers=QLineEdit("")
+            answers=QTextEdit("")
             answers.setReadOnly(True)
             for user in v:
-                answers.setText(answers.text()+user.name+";")
+                answers.append(user.name)
 
-            userlayout.addWidget(answers)
-            layout.addLayout(userlayout)
-
+            userlayout.addRow(QLabel(k),answers)
+            
+        layout.addLayout(userlayout)
         self.setLayout(layout)

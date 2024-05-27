@@ -1,20 +1,15 @@
 from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,QMainWindow, QWidget, 
-    QVBoxLayout, QHBoxLayout, QGridLayout,QFormLayout,
-    QLabel, QLineEdit, QTextEdit, 
-    QPushButton, QCheckBox, QRadioButton,
-    QListWidget, QListWidgetItem,
-    QScrollArea,QSlider,
-    QComboBox,
-    QMessageBox,QDialog,
-    QToolBar,QDateEdit
+    QWidget, 
+    QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLabel, QLineEdit, 
+    QPushButton, QListWidget, QListWidgetItem,
+    QMessageBox,QDateEdit
 )
 from GUI_scores import AddScoreWidget
 from GUI_songs import SongWidget
 from performance import Performance
-from score import Score
 from users import User,Singer,Conductor
 import pendulum
 
@@ -276,7 +271,7 @@ class AddPerforamnceWidget(QWidget):
             message = "Występ został dodany pomyślnie."
         
         self.mainwindow.setCentralWidget(PerformancelistWidget(self.mainwindow, self.mainwindow.choir.performances))
-        QMessageBox.information(self, "Sukces", message)
+        
     
     def cancel(self):
         self.mainwindow.setCentralWidget(PerformancelistWidget(self.mainwindow,self.mainwindow.choir.performances))
@@ -346,12 +341,18 @@ class PerformancelistWidget(QWidget):
         self.mainwindow.setCentralWidget(self.addperfwid)
     
     def removeperformance(self):
+        currentperf=self.performancelist.currentItem().data(1)
+        reply = QMessageBox.question(self, 'Potwierdzenie usunięcia',
+                                         'Czy na pewno chcesz usunąć występ '+currentperf.name+"?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.No:
+            return        
         perf=self.performancelist.takeItem(self.performancelist.currentRow()).data(1)
         self.mainwindow.choir.performances.remove(perf)
 
     def changedetails(self):
         self.centrallayout.removeWidget(self.detailwidget)
         self.detailwidget.hide()
-
-        self.detailwidget=PerformanceWidget(self.performancelist.currentItem().data(1),self.user)
+        if self.performancelist.currentItem():
+            self.detailwidget=PerformanceWidget(self.performancelist.currentItem().data(1),self.user)
         self.centrallayout.addWidget(self.detailwidget)

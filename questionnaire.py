@@ -8,9 +8,8 @@ class Questionnaire:
             self.addPossibleAnswer(ans)
         self.addingNewAnswers=addingNewAnswers
         self.multipleChoice=multipleChoice
-        
-    
-    def addPossibleAnswer(self,answer:str):
+           
+    def addPossibleAnswer(self,answer:str)->None:
         self.possibleAnswers.append(answer)
         self.answers[answer]=[]
 
@@ -41,8 +40,13 @@ class Questionnaire:
                     self.answers[ans].append(user)
                     return True
     
-    def getResults(self):
+    def getResults(self)->dict['User':int]:
         results={k:0 for k in self.possibleAnswers }
         for (k,v) in self.answers.items():
             results[k]=len(v)
         return results
+    
+    def __eq__(self,other:object)->bool:
+        if isinstance(other,Questionnaire):
+            return self.question==other.question
+        return False

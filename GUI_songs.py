@@ -1,31 +1,25 @@
 from __future__ import annotations
-from pathlib import Path
-import sys
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt 
 from PySide6.QtWidgets import (
-    QApplication,QMainWindow, QWidget, 
-    QVBoxLayout, QHBoxLayout, QGridLayout,QFormLayout,
+    QWidget,QMessageBox,QDialog, 
+    QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QLineEdit, QTextEdit, 
-    QPushButton, QCheckBox, QRadioButton,
+    QPushButton,
     QListWidget, QListWidgetItem,
-    QScrollArea,QSlider,
-    QComboBox,
-    QMessageBox,QDialog,
-    QToolBar,QDialogButtonBox,QLCDNumber
+    QSlider,
+    QComboBox,QLCDNumber
 )
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
-from PySide6.QtGui import QImage,QPixmap,QAction
 import pygame
 from GUI_quest import QuestionnaireWidget
-from choir import Choir
-from questionnaire import Questionnaire
 from score import Score
 from users import User,Singer,Conductor
 from song import Song
-from app import Choirapp
 from functools import partial
 import os
+import threading
+import time
 
 class SongWidget(QWidget):
     def __init__(self, song:Song|Score, user:User):
@@ -39,16 +33,15 @@ class SongWidget(QWidget):
             self.song=song
 
         self.setWindowTitle("Szczegóły Piosenki")
-        layout = QHBoxLayout()
         
         self.pdf_view=QPdfView()
         self.pdf_view.setMinimumWidth(200)
         self.pdf_document=QPdfDocument(self)
-        if len(self.song.notes):
-            loadpath= os.path.join(self.song.path,list(self.song.notes.keys())[0])
-            self.pdf_document.load(loadpath)
         self.pdf_view.setDocument(self.pdf_document)
         self.pdf_view.setPageMode(QPdfView.PageMode.MultiPage)
+        self.note_files = list(self.song.notes.keys())
+        self.current_file_index = 0
+        self.load_pdf()
         
         self.zoom_slider = QSlider(Qt.Vertical)
         self.zoom_slider.setMinimum(10)
@@ -57,28 +50,32 @@ class SongWidget(QWidget):
         self.update_zoom()
         self.zoom_slider.valueChanged.connect(self.update_zoom)
         zoomlayout=QVBoxLayout()
-        zoomlayout.addWidget(QLabel("zoom in"))
+        zoomlayout.addWidget(QLabel("przybliż"))
         zoomlayout.addWidget(self.zoom_slider)
-        zoomlayout.addWidget(QLabel("zoom out"))
+        zoomlayout.addWidget(QLabel("oddal"))
         
 
         detaillayout=QGridLayout()
         namelabel=QLabel(self.song.name)
         namelabel.setAlignment(Qt.AlignCenter)
+        namelabel.setWordWrap(True)
+        font = namelabel.font()
+        font.setPointSize(15)
+        namelabel.setFont(font)
         detaillayout.addWidget(namelabel,0,0,1,2)
         detaillayout.addWidget(QLabel("autor:"),1,0)
         authorline=QLineEdit(self.song.author)
         authorline.setReadOnly(True)
         detaillayout.addWidget(authorline,1,1)
         detaillayout.addWidget(QLabel("opis:"),2,0)
-        descline=QLineEdit(self.song.description)
+        descline=QTextEdit()
+        descline.setText(self.song.description)
         descline.setReadOnly(True)
         detaillayout.addWidget(descline,3,0,2,2)
         if self.score:
             detaillayout.addWidget(QLabel("uwagi dyrygenta:"),5,0)
-            commentline=QLineEdit(self.score.conductorcomments)
+            commentline=QTextEdit(self.score.conductorcomments)
             commentline.setReadOnly(True)
-            commentline.setFixedSize(200,50)
             detaillayout.addWidget(commentline,6,0,2,2)
         
         i=8
@@ -93,29 +90,96 @@ class SongWidget(QWidget):
             startsound_button=QPushButton("Odtwórz dźwięki początkowe")
             startsound_button.clicked.connect(self.play_startsound)
             detaillayout.addWidget(startsound_button,i,0,1,2)
+        self.stopplayingbutton=QPushButton("Zatrzymaj odtwarzanie")
+        self.stopplayingbutton.clicked.connect(lambda: pygame.mixer.music.stop())
+        detaillayout.addWidget(self.stopplayingbutton,i+1,0,1,2)
         if self.score and isinstance(self.user,Singer):
-            self.questwid=QuestionnaireWidget(self.score.questionare,user)
-            detaillayout.addWidget(self.questwid,i+1,0,4,2)
+            self.questwid=QuestionnaireWidget(self.score.questionnaire,user)
+            detaillayout.addWidget(self.questwid,i+2,0,4,2)
+       
         
+        self.prev_button = QPushButton("Poprzedni")
+        self.next_button = QPushButton("Następny")
+        self.current_file_label = QLabel()
+        self.current_file_label.setAlignment(Qt.AlignCenter)
+        self.update_file_status()
+
+        self.prev_button.clicked.connect(self.prev_file)
+        self.next_button.clicked.connect(self.next_file)
+        self.prev_button.setEnabled(False)
+        if len(self.note_files)<=1:
+            self.next_button.setEnabled(False)
+
+        navlayout = QHBoxLayout()
+        navlayout.addWidget(self.prev_button)
+        navlayout.addWidget(self.current_file_label)
+        navlayout.addWidget(self.next_button)
+        
+        layout = QHBoxLayout()
         layout.addLayout(zoomlayout)
-        layout.addWidget(self.pdf_view)
+        pdflayout=QVBoxLayout()
+        pdflayout.addWidget(self.pdf_view)
+        pdflayout.addLayout(navlayout)
+        layout.addLayout(pdflayout)
         layout.addLayout(detaillayout)
         self.setLayout(layout)
         self.current_page=0
+        self.current_rotation=0
     
     def update_zoom(self):
         zoom_factor=self.zoom_slider.value()/100
         self.pdf_view.setZoomFactor(zoom_factor)
 
     def play_recording(self,name:str):
-        self.song.playrecording(name)
+        try:
+            self.song.playrecording(name)
+        except FileNotFoundError:
+            QMessageBox.warning(self,"Błąd","Nie udało się znaleść pliku do otworzenia")
+        except Exception:
+            QMessageBox.warning(self,"Błąd","Nie udało się odtworzyć nagrania")
     
     def play_startsound(self):
-        self.song.playStartNotes()
+        try:
+            if self.score:
+                self.score.playStartNotes()
+            else:
+                self.song.playStartNotes()
+        except Exception:
+            QMessageBox.warning(self,"Błąd","Nie udało się odtworzyć dźwięków początkowych")
 
     def closeEvent(self,event):
         pygame.mixer.music.stop()
         event.accept()
+
+    def load_pdf(self):
+        if self.note_files:
+            loadpath = os.path.join(self.song.path, self.note_files[self.current_file_index])
+            self.pdf_document.load(loadpath)
+
+    def update_file_status(self):
+        total_files = len(self.note_files)
+        if total_files==0:
+            self.current_file_label.setText(f"Plik 0 z 0")
+        else:
+            self.current_file_label.setText(f"Plik {self.current_file_index + 1} z {total_files}")
+
+    def prev_file(self):
+        if self.current_file_index > 0:
+            self.current_file_index -= 1
+            if self.current_file_index==0:
+                self.prev_button.setEnabled(False)
+            self.next_button.setEnabled(True)
+            self.load_pdf()
+            self.update_file_status()
+
+    def next_file(self):
+        if self.current_file_index < len(self.note_files) - 1:
+            self.current_file_index += 1
+            if self.current_file_index==len(self.note_files)-1:
+                self.next_button.setEnabled(False)
+            self.prev_button.setEnabled(True)
+            self.load_pdf()
+            self.update_file_status()
 
 class SongListWidget(QWidget):
     def __init__(self, mainwindow:MainWindow, listofsongs:list[Score]|list[Song]) -> None:
@@ -142,6 +206,7 @@ class SongListWidget(QWidget):
             self.songlist.addItem(item)
         self.songlist.itemDoubleClicked.connect(self.showSongDetail)
         self.songlist.currentRowChanged.connect(self.changedetails)
+        self.songlist.sortItems()
 
         searchlayout=QHBoxLayout()
         self.nameinput=QLineEdit("")
@@ -194,7 +259,7 @@ class SongListWidget(QWidget):
         self.detaillayout.addWidget(self.authorline, row, 1)
         row+=1
         self.detaillayout.addWidget(QLabel("opis:"), row, 0)
-        self.descline = QLineEdit(self.song.description)
+        self.descline = QTextEdit(self.song.description)
         self.descline.setReadOnly(True)
         self.detaillayout.addWidget(self.descline, row, 1, 2, 1)
         row+=2
@@ -204,6 +269,7 @@ class SongListWidget(QWidget):
         row+=1
         self.startsound_label = QLineEdit()
         self.startsound_label.setReadOnly(True)
+        self.startsound_label.setMinimumWidth(300)
         self.detaillayout.addWidget(self.startsound_label, row, 0, 1, 2)
         row+=1
         self.detaillayout.addWidget(QLabel("Lista nagrań:"),row,0,1,2)
@@ -214,15 +280,15 @@ class SongListWidget(QWidget):
         self.openbutton=QPushButton("Zobacz utwór")
         self.openbutton.clicked.connect(lambda: self.showSongDetail(self.songlist.currentItem()))
         self.detaillayout.addWidget(self.openbutton,row,0,1,2)
-
+        row+=1
         if isinstance(self.user,Conductor):
             self.editbutton=QPushButton("Edytuj utwór")
             self.editbutton.clicked.connect(self.editsong)
-            self.detaillayout.addWidget(self.editbutton,12,0,1,2)
-
+            self.detaillayout.addWidget(self.editbutton,row,0,1,2)
+            row+=1
             self.deletebutton=QPushButton("Usuń utwór")
             self.deletebutton.clicked.connect(self.deletesong)
-            self.detaillayout.addWidget(self.deletebutton,13,0,1,2)
+            self.detaillayout.addWidget(self.deletebutton,row,0,1,2)
 
         layout = QHBoxLayout()
         helplayout = QVBoxLayout()
@@ -245,6 +311,12 @@ class SongListWidget(QWidget):
         results=[]
         if tag!="--dowolny--":
             results=self.mainwindow.choir.tagsdict[tag]
+            if self.isScore:
+                helplist=[]
+                for score in self.mainwindow.choir.scores:
+                    if score.song in results:
+                        helplist.append(score)
+                results=helplist
         else:
             if self.isScore:
                 results=self.mainwindow.choir.getScoresForSinger(self.user)
@@ -260,11 +332,14 @@ class SongListWidget(QWidget):
         if len(finalresults)==0:
             QMessageBox.warning(self,"Błąd","Żadna pieśń nie pasuje o szukanych kryteriów")
             return
-        newsonglist=SongListWidget(self.mainwindow,finalresults)
+        if self.isScore:
+            from GUI_scores import ScorelistWidget
+            newsonglist=ScorelistWidget(self.mainwindow,finalresults)
+        else:    
+            newsonglist=SongListWidget(self.mainwindow,finalresults) 
         newsonglist.nameinput.setText(name)
         newsonglist.taginput.setCurrentText(tag)
         self.mainwindow.setCentralWidget(newsonglist)
-
 
     def addnewsong(self):
         self.addwid=AddSongWidget(self.mainwindow)
@@ -275,12 +350,24 @@ class SongListWidget(QWidget):
         self.mainwindow.setCentralWidget(EditSongWidget(self.mainwindow, song))
         
     def deletesong(self):
+
+
         if self.isScore:
-            self.mainwindow.choir.scores.remove(self.songlist.currentItem().data(1))    
+            score=self.songlist.currentItem().data(1)
+            reply = QMessageBox.question(self, 'Potwierdzenie usunięcia',
+                                         'Czy na pewno chcesz usunąć aranżację '+score.song.name+"?\nZostanie ona usunięta z wszystkich występów",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.No:
+                return   
+            self.mainwindow.choir.deleteScore(score) 
+            
         else:
-            self.song.deletefiles()
-            self.song.setTags([])
-            self.mainwindow.choir.songs.remove(self.song)
+            reply = QMessageBox.question(self, 'Potwierdzenie usunięcia',
+                                         'Czy na pewno chcesz usunąć utwór '+self.song.name+"?\nZostanie on także usunięty z wszystkich pieśni o nauki i występów",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.No:
+                return   
+            self.mainwindow.choir.deleteSong(self.song)
             
         self.songlist.takeItem(self.songlist.currentRow())
         self.songlist.setCurrentRow(0)        
@@ -298,6 +385,7 @@ class SongListWidget(QWidget):
             self.conductorcomment_output.setText(self.score.conductorcomments)
             self.transposition_output.display(self.score.transposition)
             self.availablelabel.setText("Utwór dospępny dla wszysktich chórzystów" if self.score.avaliable else "Utwór dostępny tylko dla wybranych chórzystów")
+            self.transposition_output.display(self.score.transposition)
 
         if len(self.song.notes) > 0:
             notes_text = "Nuty są dostępne"
@@ -323,7 +411,16 @@ class SongListWidget(QWidget):
         self.updateDetails()
 
     def showSongDetail(self, songwid: QListWidgetItem):
-        self.detailWidget = SongWidget(songwid.data(1),self.user)
+        song=songwid.data(1)
+        if self.mainwindow.downloading and isinstance(song,Song):
+            name,thread = self.mainwindow.downloading
+            if name==song.name:
+                if thread.is_alive():
+                    QMessageBox.warning(self,"Błąd","Ten utwór cały czas się pobiera")
+                    return
+                else:
+                    self.mainwindow.downloading=None
+        self.detailWidget = SongWidget(song,self.user)
         self.mainwindow.setCentralWidget(self.detailWidget)
 
 class AddresourceDialog(QDialog):
@@ -337,15 +434,15 @@ class AddresourceDialog(QDialog):
         self.name_label = QLabel(namelabel)
         self.name_input = QLineEdit()
         
-        self.url_label = QLabel("Źródło: ")
+        self.url_label = QLabel("Źródło(?): ")
         self.url_input = QLineEdit()
         self.ext_combo=QComboBox()
         if graphic:
             self.ext_combo.addItems([".pdf",".jpg","inne (podaj pełną nazwę z rozszerzeniem)"])
+            self.infolabel=QLabel("Podaj link do nut z dysku google lub internetu\nMożesz podać także ścieżkę do pliku z dysku, jednak wtdey zasób będzie dostępny tylko na tym komputerze")
         else:
             self.ext_combo.addItems([".mp3",".wav",'.acc','.m4a',"inne (podaj pełną nazwę z rozszerzeniem)"])
-        
-        self.ext_combo.setEditable(True)
+            self.infolabel=QLabel("Podaj link do nagrania z dysku google, youtuba lub internetu\nMożesz podać także ścieżkę do pliku z dysku, jednak wtdey zasób będzie dostępny tylko na tym komputerze")
 
         self.add_button = QPushButton("Dodaj")
         self.add_button.clicked.connect(self.add_resource)
@@ -355,6 +452,7 @@ class AddresourceDialog(QDialog):
         layout.addWidget(self.url_label)
         layout.addWidget(self.url_input)
         layout.addWidget(self.ext_combo)
+        layout.addWidget(self.infolabel)
         layout.addWidget(self.add_button)
         
         self.setLayout(layout)
@@ -370,8 +468,14 @@ class AddresourceDialog(QDialog):
         
         if name.find('.')!=-1:
             QMessageBox.warning(self, "Błąd", "Nazwa nie może zawierać kropki")
+            return
 
         url = self.url_input.text().strip()
+        if url[0]=="\"":
+            url=url[1:]
+        if url[-1]=="\"":
+            url=url[:-1]
+
         
         if name and url:
             self.resource = (name, url, ext)
@@ -462,36 +566,36 @@ class AddSongWidget(QWidget):
         mainlayout.addLayout(infolayout)
         mainlayout.addSpacing(40)
         mainlayout.addLayout(resourcelayout)
-        self.recordings = {}
-        self.notes={}
-        self.tags=[]
+        self.recordings_col = {}
+        self.notes_col={}
+        self.tags_col=[]
         
         self.setLayout(mainlayout)
     
     def add_tag(self):
         tag=self.pick_tag.currentText().strip()
         self.tagslist.addItem(QListWidgetItem(tag))
-        self.tags.append(tag)
+        self.tags_col.append(tag)
     
     def remove_tag(self):
-        self.tags.remove(self.tagslist.currentItem().text())
-        self.tagslist.takeItem(self.tagslist.currentRow())
+        if self.tagslist.currentItem():
+            self.tags_col.remove(self.tagslist.currentItem().text())
+            self.tagslist.takeItem(self.tagslist.currentRow())
         
-
     def open_add_recording_dialog(self):
         dialog = AddresourceDialog("Dodawanie nagrania","Nazwa nagranie: ",False)
         if dialog.exec_():
             name, url, ext = dialog.resource
-            filename=name+ext if ext!="inne" else name
-            self.recordings[filename] = url
+            filename=name+ext
+            self.recordings_col[filename] = url
             self.recordings_list.addItem(filename)
     
     def open_add_notes_dialog(self):
         dialog = AddresourceDialog("Dodawanie nut","Nazwa pliku z nutami: ",True)
         if dialog.exec_():
             name, url,ext = dialog.resource
-            filename=name+ext if ext!="inne" else name
-            self.notes[filename] = url
+            filename=name+ext
+            self.notes_col[filename] = url
             self.notes_list.addItem(filename)
     
     def remove_selected_notes(self):
@@ -500,7 +604,7 @@ class AddSongWidget(QWidget):
             return
         for item in selected_items:
             name = item.text()
-            del self.notes[name]
+            del self.notes_col[name]
             self.notes_list.takeItem(self.notes_list.row(item))
 
     def remove_selected_recording(self):
@@ -509,7 +613,7 @@ class AddSongWidget(QWidget):
             return
         for item in selected_items:
             name = item.text()
-            del self.recordings[name]
+            del self.recordings_col[name]
             self.recordings_list.takeItem(self.recordings_list.row(item))
 
     def add_song(self):
@@ -520,8 +624,16 @@ class AddSongWidget(QWidget):
         if name in self.mainwindow.choir.songs:
             name=None
         if name:
-            self.choir.addSong(name, author, description, self.notes, self.recordings,startnotes,self.tags)
+            thread=threading.Thread(target=self.choir.addSong,args=(name, author, description, self.notes_col, self.recordings_col,startnotes,self.tags_col))
+            thread.start()
+            self.mainwindow.downloading=(name,thread)
+            if len(self.mainwindow.choir.songs)<2:
+                thread.join()
+            
             self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow,self.mainwindow.choir.songs))
+            
+            if not self.mainwindow.choir.songs[-1].chceckAndDownloadFiles():
+                QMessageBox.warning(self,"Błąd","Uwaga nie udało się pobrać wszystkich plików dla utworu "+name)
         else:
             QMessageBox.warning(self, "Błąd", "Piosenka musi mieć nazwę")
 
@@ -540,9 +652,9 @@ class EditSongWidget(AddSongWidget):
         self.author_input.setText(self.song.author)
         self.description_input.setText(self.song.description)
         self.startingnotes_input.setText(self.song.startnotes)
-        self.notes=self.song.notes
-        self.recordings=self.song.recordings
-        self.tags=self.song.tags
+        self.notes_col=self.song.notes.copy()
+        self.recordings_col=self.song.recordings.copy()
+        self.tags_col=self.song.tags.copy()
     
     def add_song(self):
         name = self.name_input.text().strip()
@@ -557,11 +669,17 @@ class EditSongWidget(AddSongWidget):
         self.song.name = name
         self.song.author = author
         self.song.description = description
-        self.song.notes = self.notes
-        self.song.recordings = self.recordings
-        self.song.startnotes = startnotes
-        self.song.setTags(self.tags)
+        self.song.notes = self.notes_col
+        self.song.recordings = self.recordings_col
+        self.song.setStartnotes(startnotes)
+        self.song.setTags(self.tags_col)
         
-        self.song.chceckAndDownloadFiles()
+
+
+        thread=threading.Thread(target=self.song.chceckAndDownloadFiles)
+        thread.start()
+        self.mainwindow.downloading=(name,thread)
 
         self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow, self.mainwindow.choir.songs))
+        if not self.song.chceckAndDownloadFiles():
+            QMessageBox.warning(self,"Błąd","Uwaga nie udało się pobrać wszystkich plików dla utworu "+name)

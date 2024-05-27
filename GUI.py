@@ -1,29 +1,21 @@
-from pathlib import Path
-import sys
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,QMainWindow, QWidget, 
+    QMainWindow, QWidget, 
     QVBoxLayout, QHBoxLayout, QGridLayout,QFormLayout,
-    QLabel, QLineEdit, QTextEdit, 
-    QPushButton, QCheckBox, QRadioButton,
+    QLabel, QLineEdit, 
+    QPushButton,
     QListWidget, QListWidgetItem,
-    QScrollArea,QSlider,
     QComboBox,
-    QMessageBox,QDialog,
+    QMessageBox,
     QToolBar
 )
-from PySide6.QtPdf import QPdfDocument
-from PySide6.QtPdfWidgets import QPdfView
-from PySide6.QtGui import QImage,QPixmap,QAction
+from PySide6.QtGui import QAction
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 from choir import Choir
-from performance import Performance
-from questionnaire import Questionnaire
-from score import Score
 from users import User,Singer,Conductor
-from song import Song
 from app import Choirapp
-from functools import partial
 import keyring
 
 from GUI_quest import QuestionnaireManagementWidget
@@ -34,6 +26,7 @@ from GUI_performance import PerformancelistWidget
 class MainWindow(QMainWindow):
     def __init__(self,choirapp:Choirapp):
         super().__init__()
+        self.downloading=None
         self.setWindowTitle("Aplikacja chóralna")
         self.setGeometry(100, 100, 300, 200)
         self.choirapp:Choirapp=choirapp
@@ -54,7 +47,13 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def setCentralWidget(self,widget):
-        super().setCentralWidget(widget)
+        layout = QVBoxLayout()
+        layout.addWidget(widget)
+        layout2 = QHBoxLayout()
+        layout2.addLayout(layout)
+        central_widget = QWidget()
+        central_widget.setLayout(layout2)
+        super().setCentralWidget(central_widget)
         pygame.mixer.music.stop()
     
     def login_successful(self):
@@ -143,6 +142,7 @@ class MainWindow(QMainWindow):
         self.user = None
         self.choir = None
         self.logwidget = LoginWindow(self)
+        self.logwidget.setMaximumSize(300,200)
         self.setCentralWidget(self.logwidget)
         self.toolbar.setVisible(False)
 
@@ -158,6 +158,9 @@ class MenuWidget(QWidget):
         
         namelabel=QLabel("Jesteś zalogowany jako "+self.user.name)
         namelabel.setAlignment(Qt.AlignCenter)
+        font = namelabel.font()
+        font.setPointSize(15)
+        namelabel.setFont(font)
         menulayout.addWidget(namelabel)
 
 
@@ -199,7 +202,7 @@ class MenuWidget(QWidget):
 
     def change_to_scorelist(self):
         if isinstance(self.user,Singer):
-            scorelist=self.mainwindow.choir.getSocoresForSinger(self.user)
+            scorelist=self.mainwindow.choir.getScoresForSinger(self.user)
             self.score_list_widget=ScorelistWidget(self.mainwindow,scorelist if scorelist else [])
         else:
             self.score_list_widget=ScorelistWidget(self.mainwindow,self.mainwindow.choir.scores)
@@ -228,7 +231,9 @@ class MenuWidget(QWidget):
         self.mainwindow.setCentralWidget(self.accountwidget)
 
     def logout(self):
-        self.mainwindow.setCentralWidget(LoginWindow(self.mainwindow))
+        self.logwidget=LoginWindow(self.mainwindow)
+        self.logwidget.setMaximumSize(300,200)
+        self.mainwindow.setCentralWidget(self.logwidget)
 
 class LoginWindow(QWidget):
     def __init__(self,mainwindow:MainWindow):

@@ -1,14 +1,14 @@
-
 from questionnaire import Questionnaire
 from song import Song
-from users import Singer,Conductor
+from users import Singer
 from music21 import interval
+from pydub import AudioSegment
 
 
 class Score:
     def __init__(self,song:Song,conductorcomments:str="",transposition:int=0,avaliable:bool=True,forUsers:list[Singer]=[]) -> None:
         self.song=song
-        self.questionare=Questionnaire("Czy znasz pieśń:"+self.song.name+"?",about=self,possibleAnswers=["Tak, czuje się w niej pewnie", "Tak, ale wymaga powtórzenia", "Jeszcze się jej uczę", "Na razie nie znam"])
+        self.questionnaire=Questionnaire("Czy znasz pieśń:"+self.song.name+"?",about=self,possibleAnswers=["Tak, czuje się w niej pewnie", "Tak, ale wymaga powtórzenia", "Jeszcze się jej uczę", "Na razie nie znam"])
         self.conductorcomments=conductorcomments
         self.transposition=transposition
         if transposition!=0:
@@ -20,7 +20,7 @@ class Score:
         self.forUsers=forUsers
         
 
-    def transposeStartingNotes(strNotes:str,change:int):
+    def transposeStartingNotes(strNotes:str,change:int)->AudioSegment|None:
         """
         transpose starting notes by change number of semitons f.e. -2, -6
         """
@@ -33,11 +33,10 @@ class Score:
             nt.transpose(inter,inPlace=True)
         return Song.realnotesTosound(notes)
     
-    def playrecording(self,name:str):
+    def playrecording(self,name:str)->None:
         self.song.playrecording(name)
 
-
-    def playStartNotes(self):
+    def playStartNotes(self)->None:
         if self.startsound:
             oryginalsound=self.song.startsound
             self.song.startsound=self.startsound
@@ -46,9 +45,6 @@ class Score:
         else:
             self.song.playStartNotes()
 
-    # def shareToSinger(self,singer:Singer,comment:str):
-    #     self.forUsers[singer]=comment
-
-    def shareToSinger(self,singer:Singer):
+    def shareToSinger(self,singer:Singer)->None:
         self.forUsers.append(singer)
                 
