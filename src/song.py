@@ -112,7 +112,10 @@ class Song:
         return ext
 
     def addFromGoogleDrive(self,name:str,url:str,ext:str)->str:
-        file_id = url.split('/d/')[1].split('/view')[0]
+        try:
+            file_id = url.split('/d/')[1].split('/view')[0]
+        except IndexError:
+            raise ValueError("Invalid google drive share link")    
         direct_link = f"https://drive.google.com/uc?export=download&id={file_id}"
         return self.addFromInternet(name,direct_link,ext)
 
@@ -155,7 +158,7 @@ class Song:
                     del self.notes[oldname]
                     os.remove(oldname)
                 ext='.pdf'
-            except:
+            except Exception:
                 pass
             finally:
                 os.chdir(olddir)
@@ -190,13 +193,16 @@ class Song:
                     del self.recordings[oldname]
                     os.remove(oldname)
                 ext='.mp3'
-            except:
+            except Exception:
                 pass
             finally:
                 os.chdir(olddir)
         self.recordings[(name+ext)]=resource
 
     def chceckAndDownloadFiles(self)->bool:
+        if not Path(self.path).exists():
+            os.makedirs(self.path)
+
         succes=True
         noteitems=list(self.notes.items())
         for k,v in noteitems:
@@ -216,7 +222,7 @@ class Song:
                 try:
                     self.addrecording(n,v,ext)
                 except Exception:
-                    succes=True
+                    succes=False
         return succes
     
     def playrecording(self,name:str)->None:
@@ -224,8 +230,7 @@ class Song:
         if self.recordings[name]:
             filepath=Path(self.path).joinpath(name)
             if not filepath.exists():
-                n,ext=os.path.splitext(name)
-                self.addrecording(n,self.recordings[name],ext)
+                self.chceckAndDownloadFiles()
             try:
                 pygame.mixer.music.stop()
                 pygame.mixer.music.unload()

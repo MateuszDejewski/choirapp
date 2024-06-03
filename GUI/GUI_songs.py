@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 from PySide6.QtCore import Qt 
 from PySide6.QtWidgets import (
     QWidget,QMessageBox,QDialog, 
@@ -154,6 +155,8 @@ class SongWidget(QWidget):
     def load_pdf(self):
         if self.note_files:
             loadpath = os.path.join(self.song.path, self.note_files[self.current_file_index])
+            if not Path(loadpath).exists():
+                self.song.chceckAndDownloadFiles()
             self.pdf_document.load(loadpath)
 
     def update_file_status(self):
@@ -206,7 +209,8 @@ class SongListWidget(QWidget):
             self.songlist.addItem(item)
         self.songlist.itemDoubleClicked.connect(self.showSongDetail)
         self.songlist.currentRowChanged.connect(self.changedetails)
-        #self.songlist.sortItems()
+        self.songlist.sortItems()
+
 
         searchlayout=QHBoxLayout()
         self.nameinput=QLineEdit("")

@@ -1,4 +1,6 @@
 
+import os
+import shutil
 from src.song import Song
 from src.score import Score
 from src.performance import Performance
@@ -74,6 +76,8 @@ class Choir:
             if questionnaire in singer.questionnairesToAnswer:
                 singer.questionnairesToAnswer.remove(questionnaire)
             
-    
+    def removefiles(self):
+        choirpath=os.path.join("songs",self.name)
+        shutil.rmtree(choirpath)
     
         

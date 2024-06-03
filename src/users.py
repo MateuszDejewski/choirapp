@@ -19,6 +19,9 @@ class User(metaclass=abc.ABCMeta):
     def changepassword(self,newpassword:str)->None:
         keyring.set_password("app",self.login,newpassword)
 
+    def deletepassword(self):
+        keyring.delete_password("app",self.login)
+
 class Singer(User):
     def __init__(self,name:str,login:str,password:str,basicvoice:str) -> None:
         super().__init__(name,login,password)

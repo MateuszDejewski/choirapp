@@ -29,7 +29,13 @@ class Choirapp:
         self.choirs.append(choir)
 
     def delete_choir(self,choir:Choir):
-        if choir in self.choirs:
-            self.choirs.remove(choir)
+        
         for song in choir.songs:
             choir.deleteSong(song)
+        os.rmdir(os.path.join("songs",choir.name))  
+        for user in choir.singers:
+            user.deletepassword()
+        for user in choir.conductors:
+            user.deletepassword()
+        if choir in self.choirs:
+            self.choirs.remove(choir)

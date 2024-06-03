@@ -1,3 +1,4 @@
+import shutil
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, 
@@ -430,6 +431,10 @@ class UserdataWidget(QWidget):
         self.savebutton.clicked.connect(self.save)
         layout.addWidget(self.savebutton,5,0,1,2)
 
+        self.savebutton=QPushButton("Wyczycść dane zapisane na komputerze")
+        self.savebutton.clicked.connect(self.removefiles)
+        layout.addWidget(self.savebutton,6,0,1,2)
+
         self.setLayout(layout)
 
     def save(self):
@@ -471,6 +476,10 @@ class UserdataWidget(QWidget):
         
         self.mainwidnow.setCentralWidget(MenuWidget(self.mainwidnow))
 
+    def removefiles(self):
+        self.mainwidnow.choir.removefiles()
+        QMessageBox.information(self,"Sukces","Pomyślnie usunięto pliki chóru z tego urządzenia")
+
 class ChoirmanegementWidget(QWidget):
     def __init__(self, mainwindow:MainWindow):
         super().__init__()
@@ -487,8 +496,10 @@ class ChoirmanegementWidget(QWidget):
         self.choir_name_label = QLabel(f"Chór: {self.choir.name}")
         self.choir_name_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.choir_name_label)
+        self.delete_choir_button = QPushButton("Usuń chór")
+        self.delete_choir_button.clicked.connect(self.delete_choir)
+        main_layout.addWidget(self.delete_choir_button)
 
-        
         list_layout = QVBoxLayout()
         list_layout.addWidget(QLabel("Lista dyrygentów:"))
         self.conductor_list = QListWidget()
@@ -499,6 +510,7 @@ class ChoirmanegementWidget(QWidget):
         list_layout.addWidget(QLabel("Lista chórzystów:"))
         self.singer_list = QListWidget()
         self.singer_list.setSelectionMode(QListWidget.SingleSelection)
+        self.singer_list.sortItems()
         self.singer_list.itemClicked.connect(self.display_member_details)
         list_layout.addWidget(self.singer_list)
 
@@ -560,6 +572,8 @@ class ChoirmanegementWidget(QWidget):
             item = QListWidgetItem(singer.name)
             item.setData(Qt.UserRole, singer)
             self.singer_list.addItem(item)
+        self.conductor_list.sortItems()
+        self.singer_list.sortItems()
 
     def display_member_details(self, item):
         member = item.data(Qt.UserRole)
@@ -577,12 +591,20 @@ class ChoirmanegementWidget(QWidget):
             self.voice_edit.setEnabled(True)
 
     def save_member_details(self):
+        def changebasics():
+            name=self.name_edit.text()
+            login=self.login_edit.text()
+            password=self.password_edit.text()
+            if self.selected_member.name!=name:
+                self.selected_member.name = name
+            if self.selected_member.login!=login:
+                self.selected_member.changelogin()
+            self.selected_member.changepassword(password)
+
         if self.selected_member:
             if isinstance(self.selected_member,Conductor):
                 if self.role_combo.currentText()=="Dyrygent":
-                    self.selected_member.name = self.name_edit.text()
-                    self.selected_member.changelogin(self.login_edit.text())
-                    self.selected_member.changepassword(self.password_edit.text())
+                    changebasics()
                 elif self.role_combo.currentText()=="Chórzysta":
                     oldmember=self.selected_member
                     self.selected_member=None
@@ -591,9 +613,7 @@ class ChoirmanegementWidget(QWidget):
                     self.delete_member()
             if isinstance(self.selected_member,Singer):
                 if self.role_combo.currentText()=="Chórzysta":
-                    self.selected_member.name = self.name_edit.text()
-                    self.selected_member.changelogin(self.login_edit.text())
-                    self.selected_member.changepassword(self.password_edit.text())
+                    changebasics()
                     self.selected_member.basicvoice=self.voice_edit.text()
                 elif self.role_combo.currentText()=="Dyrygent":
                     oldmember=self.selected_member
@@ -623,6 +643,7 @@ class ChoirmanegementWidget(QWidget):
                 self.conductors.remove(self.selected_member)
             else:
                 self.singers.remove(self.selected_member)
+            self.selected_member.deletepassword()
             self.clear_detail_fields()
 
     def clear_detail_fields(self):
@@ -640,3 +661,10 @@ class ChoirmanegementWidget(QWidget):
             self.voice_edit.setEnabled(False)
         else:
             self.voice_edit.setEnabled(True)
+
+    def delete_choir(self):
+        answer=QMessageBox.question(self,"Usuwanie chóru","Czy na pewno chcesz usunąć chór?\nWszystkie dane zostaną bezpowrotnie utracone",
+                              QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer==QMessageBox.Yes:
+            self.mainwindow.choirapp.delete_choir(self.choir)
+            self.mainwindow.setCentralWidget(LoginWindow(self.mainwindow))

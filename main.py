@@ -1,3 +1,4 @@
+import os
 from GUI.GUI import MainWindow
 from src.app import Choirapp
 import sys
@@ -53,13 +54,10 @@ if __name__=='__main__':
     # app.choirs[0].singers.append(Singer("a","a","a","sopran"))
     # app.choirs[0].conductors.append(Conductor("m","m","m")) 
     
-    # # app=Choirapp()
-    # # app.read_choirs()
-
-    
+    # app=Choirapp()
+    # app.read_choirs()    
     
     # app.save_choirs()
-
 
     gui = QApplication(sys.argv)
     wind=MainWindow(Choirapp())
