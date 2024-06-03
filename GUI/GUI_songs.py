@@ -446,10 +446,10 @@ class AddresourceDialog(QDialog):
         self.ext_combo=QComboBox()
         if graphic:
             self.ext_combo.addItems([".pdf",".jpg","inne (podaj pełną nazwę z rozszerzeniem)"])
-            self.infolabel=QLabel("Podaj link do nut z dysku google lub internetu\nMożesz podać także ścieżkę do pliku z dysku, jednak wtdey zasób będzie dostępny tylko na tym komputerze")
+            self.infolabel=QLabel("Podaj link do nut z dysku google lub internetu\nMożesz podać także ścieżkę do pliku z dysku, jednak wtedy zasób będzie dostępny tylko na tym komputerze")
         else:
             self.ext_combo.addItems([".mp3",".wav",'.acc','.m4a',"inne (podaj pełną nazwę z rozszerzeniem)"])
-            self.infolabel=QLabel("Podaj link do nagrania z dysku google, youtuba lub internetu\nMożesz podać także ścieżkę do pliku z dysku, jednak wtdey zasób będzie dostępny tylko na tym komputerze")
+            self.infolabel=QLabel("Podaj link do nagrania z dysku google, youtuba lub internetu\nMożesz podać także ścieżkę do pliku z dysku, jednak wtedy zasób będzie dostępny tylko na tym komputerze")
 
         self.add_button = QPushButton("Dodaj")
         self.add_button.clicked.connect(self.add_resource)
