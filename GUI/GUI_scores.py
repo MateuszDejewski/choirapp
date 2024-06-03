@@ -50,6 +50,7 @@ class AddScoreWidget(QWidget):
             item.setData(1, singer)
             self.singerlist.addItem(item)
         self.singerlist.setSelectionMode(QListWidget.MultiSelection)
+        self.singerlist.sortItems()
         layout.addWidget(self.singerlist,8,0,3,2)
         self.singerlist.setVisible(False)
 

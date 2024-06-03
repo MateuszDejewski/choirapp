@@ -121,6 +121,7 @@ class AddPerforamnceWidget(QWidget):
             item.setData(1, singer)
             self.singerlist.addItem(item)
         self.singerlist.setSelectionMode(QListWidget.MultiSelection)
+        self.singerlist.sortItems()
         layout.addWidget(self.singerlist,9,0,3,1)
 
         self.addAllSingersbutton=QPushButton("Dodaj wszystkich chórzystów")
@@ -154,8 +155,13 @@ class AddPerforamnceWidget(QWidget):
 
     def addScore(self):
         self.addscorewid=AddScoreWidget(self.mainwindow)
-        self.addscorewid.available_checkbox.hide()
-        self.addscorewid.singerlist.hide()
+        self.addscorewid.available_checkbox.setChecked(True)
+        performance_singer_set = {self.performance_singerlist.item(i).text() for i in range(self.performance_singerlist.count())}
+
+        for i in range(self.addscorewid.singerlist.count()):
+            item = self.addscorewid.singerlist.item(i)
+            if item.text() in performance_singer_set:
+                item.setSelected(True)
         self.addscorewid.cancelbutton.hide()
         self.addscorewid.inthebackground=True
         self.addscorewid.setWindowTitle("Dodawanie aranżacji")
@@ -167,6 +173,7 @@ class AddPerforamnceWidget(QWidget):
         additem=QListWidgetItem(newscore.song.name)
         additem.setData(1,newscore)
         self.scorelist.addItem(additem)
+        self.scorelist.sortItems()
 
     
     def setPerformance(self, performance):
@@ -200,6 +207,10 @@ class AddPerforamnceWidget(QWidget):
             singer = item.data(1)
             if singer in performance.singers:
                 self.singerlist.takeItem(index)
+        
+        self.scorelist.sortItems()
+        self.singerlist.sortItems()
+        self.performance_singerlist.sortItems()
 
 
     def addSongEnd(self):
@@ -221,18 +232,24 @@ class AddPerforamnceWidget(QWidget):
         while self.singerlist.count() > 0:
             item = self.singerlist.takeItem(0)
             self.performance_singerlist.addItem(item)
+            self.singerlist.sortItems()
+            self.performance_singerlist.sortItems()
     
     def addSelectedSingers(self):
         for item in self.singerlist.selectedItems():
             row = self.singerlist.row(item)
             self.singerlist.takeItem(row)
             self.performance_singerlist.addItem(item)
+        self.singerlist.sortItems()
+        self.performance_singerlist.sortItems()
 
     def removeSelectedSingers(self):
         for item in self.performance_singerlist.selectedItems():
             row = self.performance_singerlist.row(item)
             self.performance_singerlist.takeItem(row)
             self.singerlist.addItem(item)
+        self.singerlist.sortItems()
+        self.performance_singerlist.sortItems()
 
     def addPerformance(self):
         name = self.name_input.text()

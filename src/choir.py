@@ -20,7 +20,7 @@ class Choir:
 
     def addSong(self,name:str,author:str="",description:str="",notes=None,recordings=None,startnotes:str="",tags:list[str]=[]):
         song=Song(name,author,self,description,notes,recordings,startnotes,tags)
-        success=song.chceckAndDownloadFiles()
+        success=song.checkAndDownloadFiles()
         self.songs.append(song)
         return success
     

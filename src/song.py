@@ -199,7 +199,7 @@ class Song:
                 os.chdir(olddir)
         self.recordings[(name+ext)]=resource
 
-    def chceckAndDownloadFiles(self)->bool:
+    def checkAndDownloadFiles(self)->bool:
         if not Path(self.path).exists():
             os.makedirs(self.path)
 
@@ -225,12 +225,26 @@ class Song:
                     succes=False
         return succes
     
+    def checkFiles(self):
+        noteitems=list(self.notes.items())
+        for k,v in noteitems:
+            filepath=Path(self.path).joinpath(k)
+            if not filepath.exists():
+                return False
+
+        recordingitems=list(self.recordings.items())
+        for k,v in recordingitems:
+            filepath=Path(self.path).joinpath(k)
+            if not filepath.exists():
+                return False
+        return True
+
     def playrecording(self,name:str)->None:
         
         if self.recordings[name]:
             filepath=Path(self.path).joinpath(name)
             if not filepath.exists():
-                self.chceckAndDownloadFiles()
+                self.checkAndDownloadFiles()
             try:
                 pygame.mixer.music.stop()
                 pygame.mixer.music.unload()

@@ -34,6 +34,9 @@ class SongWidget(QWidget):
 
         self.setWindowTitle("Szczegóły Piosenki")
         
+        if not self.song.checkFiles():
+            QMessageBox.warning(self,"Błąd","Uwaga nie udało się pobrać wszystkich plików dla utworu "+song.name)
+
         self.pdf_view=QPdfView()
         self.pdf_view.setMinimumWidth(200)
         self.pdf_document=QPdfDocument(self)
@@ -156,7 +159,7 @@ class SongWidget(QWidget):
         if self.note_files:
             loadpath = os.path.join(self.song.path, self.note_files[self.current_file_index])
             if not Path(loadpath).exists():
-                self.song.chceckAndDownloadFiles()
+                self.song.checkAndDownloadFiles()
             self.pdf_document.load(loadpath)
 
     def update_file_status(self):
@@ -636,8 +639,6 @@ class AddSongWidget(QWidget):
             
             self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow,self.mainwindow.choir.songs))
             
-            if not self.mainwindow.choir.songs[-1].chceckAndDownloadFiles():
-                QMessageBox.warning(self,"Błąd","Uwaga nie udało się pobrać wszystkich plików dla utworu "+name)
         else:
             QMessageBox.warning(self, "Błąd", "Piosenka musi mieć nazwę")
 
@@ -680,10 +681,8 @@ class EditSongWidget(AddSongWidget):
         
 
 
-        thread=threading.Thread(target=self.song.chceckAndDownloadFiles)
+        thread=threading.Thread(target=self.song.checkAndDownloadFiles)
         thread.start()
         self.mainwindow.downloading=(name,thread)
 
         self.mainwindow.setCentralWidget(SongListWidget(self.mainwindow, self.mainwindow.choir.songs))
-        if not self.song.chceckAndDownloadFiles():
-            QMessageBox.warning(self,"Błąd","Uwaga nie udało się pobrać wszystkich plików dla utworu "+name)
