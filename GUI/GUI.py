@@ -632,6 +632,8 @@ class ChoirmanegementWidget(QWidget):
             else:
                 basicvoice = self.voice_edit.text()
                 new_member = Singer(name, login, password, basicvoice)
+                for quest in self.choir.qusetionnaires:
+                    new_member.addQuestionnaire(quest)
                 self.singers.append(new_member)
             self.clear_detail_fields()
         self.populate_member_lists()
