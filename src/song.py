@@ -22,17 +22,9 @@ class Song:
         self.author=author
         self.description=description
     
-        if notes:
-            self.notes=notes
-        else:
-            self.notes=dict()
-        if recordings:
-            self.recordings=recordings
-        else:
-            self.recordings=dict()
-
-        
-        
+        self.notes=notes if notes else dict()
+        self.recordings=recordings if recordings else dict()
+         
         self.tags=[]
         self.setTags(tags)
         
@@ -45,10 +37,11 @@ class Song:
         os.chdir(choir.name)
         if not Path(name).exists():
             os.mkdir(name)
-
+        os.chdir(olddir)
+        
         self.startnotes=""
         self.setStartnotes(startnotes)
-        os.chdir(olddir)
+        
 
     def setStartnotes(self,startnotes:str)->None:
         if startnotes!="":

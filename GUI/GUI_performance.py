@@ -83,7 +83,7 @@ class AddPerforamnceWidget(QWidget):
 
         layout.addWidget(QLabel("Szczegóły dotyczące występu:"),2,0)
         self.details_input=QLineEdit()
-        layout.addWidget(self.details_input,2,1)
+        layout.addWidget(self.details_input,2,1,1,2)
 
         self.addScorebutton=QPushButton("Dodaj aranżację pieśni")
         self.addScorebutton.clicked.connect(self.addScore)
@@ -227,6 +227,7 @@ class AddPerforamnceWidget(QWidget):
         item = self.performance_songlist.takeItem(self.performance_songlist.currentRow())
         if item:
             self.scorelist.addItem(item)
+        self.scorelist.sortItems()
 
     def addAllSingers(self):
         while self.singerlist.count() > 0:
