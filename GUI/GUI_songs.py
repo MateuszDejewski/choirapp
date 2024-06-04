@@ -318,15 +318,25 @@ class SongListWidget(QWidget):
         results=[]
         if tag!="--dowolny--":
             results=self.mainwindow.choir.tagsdict[tag]
-            if self.isScore:
+            if self.isScore and isinstance(self.user,Singer):
                 helplist=[]
                 for score in self.mainwindow.choir.getScoresForSinger(self.user):
                     if score.song in results:
                         helplist.append(score)
                 results=helplist
+            if self.isScore and isinstance(self.user,Conductor):
+                helplist=[]
+                for score in self.mainwindow.choir.scores:
+                    if score.song in results:
+                        helplist.append(score)
+                results=helplist
         else:
             if self.isScore:
-                results=self.mainwindow.choir.getScoresForSinger(self.user)
+                if isinstance(self.user,Singer):
+                    results=self.mainwindow.choir.getScoresForSinger(self.user)
+                else:
+                    results=self.mainwindow.choir.scores
+
             else:
                 results=self.mainwindow.choir.songs
         
